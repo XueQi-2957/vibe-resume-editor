@@ -1,0 +1,38 @@
+{
+  "name": "vibe-resume-editor",
+  "version": "0.1.0",
+  "description": "A visual web resume editor with local save and Chromium PDF export.",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/XueQi-2957/vibe-resume-editor.git"
+  },
+  "bugs": {
+    "url": "https://github.com/XueQi-2957/vibe-resume-editor/issues"
+  },
+  "homepage": "https://github.com/XueQi-2957/vibe-resume-editor#readme",
+  "keywords": [
+    "resume",
+    "cv",
+    "pdf",
+    "html",
+    "css",
+    "web-to-pdf",
+    "vibe-resume",
+    "chromium",
+    "vibe-coding",
+    "ai-resume",
+    "resume-editor"
+  ],
+  "scripts": {
+    "preview": "python -u serve.py 4173",
+    "export:pdf": "node scripts/export-pdf.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "playwright-core": "^1.60.0"
+  }
+}

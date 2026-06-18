@@ -1,0 +1,2305 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>简历编辑器 - VibeResume</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --sidebar-w: 440px;
+  --bg: #f0f2f5;
+  --card-bg: #fff;
+  --accent: #2563eb;
+  --accent-light: #eef2ff;
+  --text: #1f2937;
+  --muted: #6b7280;
+  --border: #e5e7eb;
+  --radius: 8px;
+  --shadow: 0 1px 3px rgba(0,0,0,.08);
+}
+
+html, body { height: 100%; font-family: -apple-system, "Microsoft YaHei", "PingFang SC", sans-serif; background: var(--bg); color: var(--text); }
+
+/* === Layout === */
+.layout { display: flex; height: 100vh; }
+
+/* === Toolbar === */
+.toolbar {
+  position: fixed; top: 0; left: 0; right: 0; height: 52px;
+  background: #fff; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 20px; z-index: 100;
+  box-shadow: 0 1px 3px rgba(0,0,0,.06);
+}
+.toolbar h1 { font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+.toolbar h1 small { font-weight: 400; font-size: 12px; color: var(--muted); }
+.toolbar-actions { display: flex; gap: 8px; }
+
+.btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 16px; border-radius: 6px; font-size: 13px; font-weight: 600;
+  cursor: pointer; border: 1px solid var(--border); background: #fff; color: var(--text);
+  transition: all .15s;
+}
+.btn:hover { border-color: #ccc; box-shadow: var(--shadow); }
+.btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+.btn-primary:hover { background: #1d4ed8; }
+.btn-sm { padding: 4px 10px; font-size: 12px; }
+.btn-danger { color: #dc2626; border-color: #fca5a5; }
+.btn-danger:hover { background: #fef2f2; border-color: #dc2626; }
+
+/* === Sidebar === */
+.sidebar {
+  width: var(--sidebar-w); min-width: var(--sidebar-w);
+  padding-top: 52px; overflow-y: auto; background: var(--bg);
+  border-right: 1px solid var(--border);
+}
+.sidebar-inner { padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+
+/* === Section Card === */
+.section-card {
+  background: var(--card-bg); border-radius: var(--radius);
+  border: 1px solid var(--border); overflow: hidden;
+  box-shadow: var(--shadow);
+}
+.section-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px; cursor: pointer; user-select: none;
+  border-bottom: 1px solid transparent; transition: background .1s;
+}
+.section-header:hover { background: #f9fafb; }
+.section-header.active { border-bottom-color: var(--border); }
+.section-header .label { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.section-header .label .icon { width: 18px; height: 18px; }
+.section-header .toggle { font-size: 10px; color: var(--muted); transition: transform .2s; }
+.section-header.active .toggle { transform: rotate(180deg); }
+.section-body { display: none; padding: 12px 14px; }
+.section-body.open { display: block; }
+
+/* === Form Fields === */
+.field-group { margin-bottom: 10px; }
+.field-group:last-child { margin-bottom: 0; }
+.field-label { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 4px; }
+input[type="text"], textarea {
+  width: 100%; padding: 7px 10px; border: 1px solid var(--border);
+  border-radius: 5px; font-size: 13px; font-family: inherit;
+  outline: none; transition: border-color .15s;
+}
+input[type="text"]:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(37,99,235,.15); }
+textarea { resize: vertical; min-height: 52px; }
+.rich-editor {
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color .15s;
+  background: #fff;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  min-height: 52px;
+}
+.rich-editor:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(37,99,235,.15); }
+.rich-editor[data-rows="1"] { min-height: 28px; }
+.rich-editor:empty::before {
+  content: attr(data-placeholder);
+  color: #9ca3af;
+  pointer-events: none;
+}
+.floating-toolbar {
+  position: fixed;
+  display: none;
+  align-items: center;
+  gap: 6px;
+  padding: 6px;
+  background: rgba(17, 24, 39, 0.96);
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.2);
+  z-index: 1000;
+}
+.floating-toolbar.show { display: inline-flex; }
+.floating-toolbar button {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: Georgia, "Times New Roman", serif;
+  cursor: pointer;
+}
+.floating-toolbar button:hover { background: rgba(255,255,255,.14); }
+.floating-toolbar button[data-style="italic"] { font-style: italic; }
+.help-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+.help-button {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--muted);
+  font-weight: 700;
+  font-size: 14px;
+  cursor: help;
+}
+.help-button:hover { border-color: #94a3b8; color: var(--text); box-shadow: var(--shadow); }
+.help-popover {
+  position: absolute;
+  top: 36px;
+  right: 0;
+  width: 240px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(17, 24, 39, 0.96);
+  color: #fff;
+  font-size: 12px;
+  line-height: 1.45;
+  box-shadow: 0 12px 28px rgba(0,0,0,.18);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-4px);
+  transition: opacity .15s ease, transform .15s ease;
+  z-index: 1200;
+}
+.help-wrap:hover .help-popover,
+.help-wrap:focus-within .help-popover {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+.help-popover strong { display: block; margin-bottom: 4px; }
+.help-popover p { margin: 4px 0 0; }
+
+/* === List Items (education, projects, publications, skills) === */
+.list-items { display: flex; flex-direction: column; gap: 8px; }
+.list-item {
+  background: #f9fafb; border: 1px solid var(--border); border-radius: 6px;
+  padding: 10px 12px; position: relative;
+}
+.list-item .item-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 6px;
+}
+.list-item .item-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.project-logo {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  object-fit: cover;
+  flex: 0 0 auto;
+}
+.image-picker {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
+  padding: 8px;
+}
+.image-picker-row {
+  display: grid;
+  grid-template-columns: 54px 1fr;
+  gap: 10px;
+  align-items: center;
+}
+.image-preview-box {
+  width: 54px;
+  height: 54px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #f8fafc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  color: #9ca3af;
+  font-size: 11px;
+}
+.image-preview-box.avatar {
+  height: 72px;
+  width: 54px;
+}
+.image-preview-box img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.image-picker-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.image-picker-hint {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.35;
+  margin-top: 5px;
+}
+.file-input-hidden {
+  display: none;
+}
+.crop-modal {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, .52);
+  z-index: 1500;
+  padding: 18px;
+}
+.crop-modal.show {
+  display: flex;
+}
+.crop-dialog {
+  width: min(92vw, 520px);
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, .3);
+  overflow: hidden;
+}
+.crop-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.crop-title {
+  font-size: 14px;
+  font-weight: 700;
+}
+.crop-body {
+  padding: 14px;
+}
+.crop-stage {
+  position: relative;
+  height: 320px;
+  background: #111827;
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.crop-stage img {
+  max-width: 100%;
+  max-height: 100%;
+  display: block;
+  user-select: none;
+  pointer-events: none;
+}
+.crop-box {
+  position: absolute;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 999px rgba(0,0,0,.45);
+  cursor: move;
+}
+.crop-controls {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+.crop-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.crop-row input[type="range"] {
+  flex: 1;
+}
+.crop-aspects {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.crop-aspects label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+}
+.crop-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 14px;
+  border-top: 1px solid var(--border);
+}
+.list-item .item-fields { display: flex; flex-direction: column; gap: 6px; }
+.list-item .item-remove {
+  cursor: pointer;
+  color: #dc2626;
+  font-size: 16px;
+  line-height: 1;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: .6;
+  flex: 0 0 auto;
+}
+.list-item .item-remove:hover { opacity: 1; }
+.move-controls {
+  display: inline-flex;
+  gap: 2px;
+  align-items: center;
+}
+.move-btn {
+  width: 18px;
+  height: 18px;
+  border: 0;
+  background: transparent;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  font-size: 12px;
+  opacity: .7;
+}
+.move-btn:hover { color: #111827; opacity: 1; }
+.move-btn:disabled { opacity: .25; cursor: default; }
+
+.add-btn {
+  display: flex; align-items: center; justify-content: center; gap: 4px;
+  padding: 7px; border: 1px dashed var(--border); border-radius: 6px;
+  font-size: 12px; color: var(--accent); cursor: pointer; background: transparent;
+  transition: all .15s; margin-top: 6px;
+}
+.add-btn:hover { background: var(--accent-light); border-color: var(--accent); }
+
+/* === Preview Panel === */
+.preview-panel {
+  flex: 1; padding-top: 52px; display: flex; flex-direction: column;
+}
+.preview-panel iframe {
+  width: 100%; height: 100%; border: none; background: #eef2f7;
+}
+.preview-toolbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 16px; background: #fff; border-bottom: 1px solid var(--border);
+  font-size: 12px; color: var(--muted);
+}
+.preview-toolbar .actions { display: flex; gap: 6px; }
+
+/* === Notification === */
+.toast {
+  position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+  background: #1f2937; color: #fff; padding: 10px 24px; border-radius: 8px;
+  font-size: 14px; z-index: 999; opacity: 0; transition: opacity .3s;
+  pointer-events: none;
+}
+.toast.show { opacity: 1; }
+
+/* === Scrollbar === */
+.sidebar::-webkit-scrollbar { width: 4px; }
+.sidebar::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 4px; }
+
+/* Responsive */
+@media (max-width: 900px) {
+  .sidebar { width: 100%; min-width: 0; border-right: none; }
+  .preview-panel { display: none; }
+}
+</style>
+</head>
+<body>
+
+<div class="layout">
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <h1>
+      ✎ 简历编辑器
+      <small>VibeResume</small>
+    </h1>
+    <div class="toolbar-actions">
+      <div class="help-wrap">
+        <button class="help-button" type="button" aria-label="使用说明">?</button>
+        <div class="help-popover" role="tooltip">
+          <strong>使用说明</strong>
+          选中文本后可用悬浮条设置加粗、斜体。亮点右侧只点 X 删除。修改完输入框后，离开焦点或点右侧刷新再同步预览。
+          <p>快捷键：`Ctrl+B` 加粗，`Ctrl+I` 斜体，`Ctrl+S` 保存。</p>
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="saveToServer()">💾 保存到 index.html</button>
+      <button class="btn btn-danger" onclick="resetDefaults()">↺ 重新读取 index.html</button>
+      <button class="btn" onclick="exportToPDF(event)">📄 导出 PDF</button>
+    </div>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-inner" id="sidebar-root"></div>
+  </div>
+
+  <!-- Preview -->
+  <div class="preview-panel">
+    <div class="preview-toolbar">
+      <span>📱 实时预览</span>
+      <div class="actions">
+        <button class="btn btn-sm" onclick="refreshPreview()">🔄 刷新</button>
+      </div>
+    </div>
+    <iframe id="preview-frame" srcdoc=""></iframe>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<div class="floating-toolbar" id="floating-toolbar" aria-hidden="true">
+  <button type="button" data-style="bold" aria-label="加粗" title="加粗" onmousedown="handleToolbarMouseDown(event)" onclick="applyFormatFromToolbar('bold')">B</button>
+  <button type="button" data-style="italic" aria-label="斜体" title="斜体" onmousedown="handleToolbarMouseDown(event)" onclick="applyFormatFromToolbar('italic')">I</button>
+</div>
+<div class="crop-modal" id="image-crop-modal" aria-hidden="true">
+  <div class="crop-dialog" role="dialog" aria-modal="true" aria-labelledby="crop-title">
+    <div class="crop-head">
+      <div class="crop-title" id="crop-title">裁切图片</div>
+      <button class="item-remove" type="button" onclick="cancelImageCrop()" aria-label="关闭裁切">✕</button>
+    </div>
+    <div class="crop-body">
+      <div class="crop-stage" id="crop-stage">
+        <img id="crop-image" alt="待裁切图片">
+        <div class="crop-box" id="crop-box"></div>
+      </div>
+      <div class="crop-controls">
+        <div class="crop-row">
+          <span>缩放</span>
+          <input id="crop-zoom" type="range" min="1" max="3" step="0.01" value="1" oninput="handleCropZoomInput(this.value)">
+        </div>
+        <div class="crop-row crop-aspects" id="crop-aspects">
+          <label><input type="radio" name="crop-aspect" value="3:4" onchange="setCropAspectFromControl(this.value)">头像 3:4</label>
+          <label><input type="radio" name="crop-aspect" value="1:1" onchange="setCropAspectFromControl(this.value)">Logo 1:1</label>
+          <label><input type="radio" name="crop-aspect" value="free" onchange="setCropAspectFromControl(this.value)">自由</label>
+        </div>
+        <p class="image-picker-hint">拖动裁切框调整位置，使用缩放控制图片大小。确认后会压缩为内联图片，随简历保存。</p>
+      </div>
+    </div>
+    <div class="crop-actions">
+      <button class="btn" type="button" onclick="cancelImageCrop()">取消</button>
+      <button class="btn btn-primary" id="confirm-crop-button" type="button" onclick="confirmImageCrop()">确认裁切</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// Data Model
+// ============================================================
+const data = {
+  header: {
+    name: 'Alex Chen',
+    title: 'AI Agent Engineer · Template Demo',
+    eyebrow: 'AI Agent Engineering / Tool Calling / Developer Tools',
+    phone: '13800000000',
+    email: 'alex.chen@example.com',
+    github: 'github.com/example',
+    photo: './assets/avatar-placeholder.svg'
+  },
+  education: [
+    { school: '星河大学（本科）', major: '计算机科学与技术', period: '2021.09 - 2025.06' },
+    { school: '云杉实验室（交换）', major: '人机交互与软件工程', period: '2024.02 - 2024.06' }
+  ],
+  infoLines: [
+    { label: 'GPA', value: '3.8/4.0　<strong>排名：</strong>Top 10%' },
+    { label: '荣誉/奖项', value: '校级一等奖学金、优秀学生干部、开源贡献奖、创新实践奖' },
+    { label: '竞赛获奖', value: '全国大学生软件设计挑战赛一等奖、Web 创意开发赛金奖、黑客松最佳工程实现奖' },
+    { label: '学生工作', value: '开发者社群负责人、校园开源小组组织者、新生项目导师' }
+  ],
+  publications: [],
+  internships: [
+    {
+      company: '哔哩哔哩技术有限公司（仅为示例演示）',
+      role: 'AI Agent Engineering Intern',
+      period: '2024.06 - 2024.09',
+      title: '创作者运营 Agent 工作台 | 核心开发',
+      summary: '项目背景：面向创作者服务与内容运营场景，建设可配置的 Agent 工作台，支持知识检索、工单摘要、标签建议和风险提示等内部效率工具。',
+      highlights: [
+        '<strong>工具调用编排</strong>：设计 tool schema、参数校验、超时重试与错误归因机制，统一知识库、工单系统、内容标签等工具的调用协议。',
+        '<strong>知识检索链路</strong>：接入向量检索与关键词召回，补充 metadata filter、来源片段与引用信息，降低 Agent 回答不可追溯的问题。',
+        '<strong>评测与观测</strong>：沉淀 golden cases，记录 prompt、tool call、latency、命中来源和人工反馈，为迭代模型与提示词提供可对比样本。',
+        '<strong>安全与接管</strong>：为高风险工具增加权限范围、人工确认和 fallback 话术，避免 Agent 在内容操作场景中直接执行不可逆动作。'
+      ]
+    },
+    {
+      company: '华为技术有限公司（仅为示例演示）',
+      role: 'Agent Platform Intern',
+      period: '2023.07 - 2023.10',
+      title: '企业知识 Agent Runtime | 核心开发',
+      summary: '项目背景：面向内部知识库问答与研发助手场景，参与 Agent runtime 的工具注册、会话管理、权限控制和离线评测流水线建设。',
+      highlights: [
+        '<strong>运行时抽象</strong>：实现会话状态、工具注册表、JSON schema 校验和流式响应封装，使业务方能够以配置方式接入自定义工具。',
+        '<strong>权限与审计</strong>：按用户、空间和工具维度设计白名单与操作日志，区分只读查询、草稿生成和写入类动作的审批路径。',
+        '<strong>上下文管理</strong>：支持历史消息裁剪、摘要压缩和关键事实保留，缓解长会话下 token 成本上升与上下文漂移问题。',
+        '<strong>工程验证</strong>：构建 mock provider、fixture 数据和端到端用例，覆盖工具调用成功、参数缺失、权限拒绝和模型拒答等分支。'
+      ]
+    }
+  ],
+  projects: [
+    {
+      name: 'Agent 工作台示例',
+      role: 'Full-stack AI Tooling Demo',
+      period: 'Template Project',
+      link: 'github.com/example/agent-workbench',
+      logo: '',
+      badge: 'Template Project',
+      summary: '项目背景：面向知识管理与内部效率场景，构建一个可配置的 Agent 工作台示例，展示工具调用、权限确认、日志观测和可视化配置等能力。',
+      highlights: [
+        '<strong>工具注册</strong>：抽象 tool schema、参数校验、超时处理和错误提示，让不同业务工具能够以统一方式接入工作台。',
+        '<strong>会话管理</strong>：维护消息历史、关键事实和工具结果，支持长任务下的状态恢复、摘要压缩与上下文边界提示。',
+        '<strong>安全确认</strong>：区分只读查询、草稿生成和写入动作，为高风险操作增加二次确认、权限范围和审计记录。',
+        '<strong>工程交付</strong>：整理 mock provider、fixture 数据、端到端用例和 README，让模板项目便于替换为真实业务案例。'
+      ]
+    }
+  ],
+  skills: [
+    '熟悉 TypeScript / Python / Node.js，能够实现 Agent runtime、CLI 工具和服务端接口。',
+    '熟悉 LLM Agent 核心机制，了解 tool calling、function schema、规划执行、结果回传与错误恢复。',
+    '熟悉 RAG 基础链路，了解向量检索、关键词召回、metadata filter、引用片段和知识库更新流程。',
+    '熟悉 Agent 工程化能力，了解 MCP、Skills、上下文压缩、会话记忆、权限审批与操作审计等设计。',
+    '熟悉评测与可观测性建设，能够整理 golden cases、mock provider、日志字段和端到端测试用例。',
+    '熟悉 Git、GitHub、README 编写和开源项目结构，能够把 demo、文档、脚本和发布流程整理成闭环。'
+  ]
+};
+
+// ============================================================
+// Legacy localStorage key. Editor content is loaded from index.html, not draft storage.
+// ============================================================
+const STORAGE_KEY = 'vibe-resume-editor-data';
+let savedSelection = null;
+let undoStack = [];
+let undoIndex = -1;
+let activeEditPath = null;
+let activeEditSnapshot = null;
+
+function deepClone(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function captureUndoSnapshot() {
+  return deepClone(data);
+}
+
+function commitUndoSnapshot(snapshot) {
+  if (!snapshot) return;
+  const current = JSON.stringify(snapshot);
+  if (undoIndex >= 0 && JSON.stringify(undoStack[undoIndex]) === current) return;
+  undoStack = undoStack.slice(0, undoIndex + 1);
+  undoStack.push(snapshot);
+  undoIndex = undoStack.length - 1;
+}
+
+function captureAndCommitUndo() {
+  commitUndoSnapshot(captureUndoSnapshot());
+}
+
+function initUndoHistory() {
+  undoStack = [captureUndoSnapshot()];
+  undoIndex = 0;
+}
+
+function restoreUndoSnapshot(snapshot) {
+  if (!snapshot) return;
+  Object.assign(data, deepClone(snapshot));
+  normalizeData();
+  renderSidebar();
+  renderPreviewNow();
+}
+
+function undoLastAction() {
+  if (undoIndex <= 0) return;
+  undoIndex -= 1;
+  restoreUndoSnapshot(undoStack[undoIndex]);
+}
+
+async function loadFromSavedIndex() {
+  try {
+    const res = await fetch('./index.html', { cache: 'no-store' });
+    if (!res.ok) return false;
+    const html = await res.text();
+    const parsed = extractResumeDataFromHTML(html);
+    if (!parsed) return false;
+    Object.assign(data, parsed);
+    normalizeData();
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+function extractResumeDataFromHTML(html) {
+  const result = {
+    header: null,
+    education: [],
+    infoLines: [],
+    publications: [],
+    internships: [],
+    projects: [],
+    skills: []
+  };
+
+  const doc = parseHTMLDocument(html);
+  if (doc) {
+    const headerEl = doc.querySelector('.resume-header');
+    if (headerEl) {
+      const contactLinks = [...headerEl.querySelectorAll('.contact-line a')];
+      const phoneLink = contactLinks.find((a) => (a.getAttribute('href') || '').startsWith('tel:'));
+      const emailLink = contactLinks.find((a) => (a.getAttribute('href') || '').startsWith('mailto:'));
+      const githubLink = contactLinks.find((a) => (a.getAttribute('href') || '').includes('github.com'));
+      result.header = {
+        ...data.header,
+        eyebrow: stripHtml(headerEl.querySelector('.eyebrow')?.innerHTML || ''),
+        name: stripHtml(headerEl.querySelector('h1')?.innerHTML || ''),
+        title: stripHtml(headerEl.querySelector('.identity-line')?.innerHTML || ''),
+        phone: phoneLink ? stripHtml(phoneLink.innerHTML).replace(/^.*?(\+?\d[\d\s-]*)$/, '$1').trim() : data.header.phone,
+        email: emailLink ? stripHtml(emailLink.innerHTML).trim() : data.header.email,
+        github: githubLink ? stripHtml(githubLink.innerHTML).trim().replace(/^https?:\/\//, '') : data.header.github,
+        photo: headerEl.querySelector('.profile-photo')?.getAttribute('src') || data.header.photo
+      };
+    }
+
+    doc.querySelectorAll('.education-grid').forEach((grid) => {
+      const cells = [...grid.querySelectorAll(':scope > div')].map((cell) => stripHtml(cell.innerHTML));
+      for (let i = 0; i + 2 < cells.length; i += 3) {
+        result.education.push({
+          school: cells[i],
+          major: cells[i + 1],
+          period: cells[i + 2]
+        });
+      }
+    });
+
+    doc.querySelectorAll('p.info-line').forEach((info) => {
+      const strong = info.querySelector('strong');
+      if (!strong) return;
+      const label = stripHtml(strong.innerHTML).replace(/：$/, '');
+      const clone = info.cloneNode(true);
+      clone.querySelector('strong')?.remove();
+      result.infoLines.push({
+        label,
+        value: stripHtml(clone.innerHTML).replace(/^：/, '').trim()
+      });
+    });
+
+    doc.querySelectorAll('.publications p').forEach((pub) => {
+      const text = stripHtml(pub.innerHTML);
+      const match = text.match(/^([\s\S]*?)\s+\(([^()]*)\)$/);
+      result.publications.push({
+        title: match ? match[1] : text,
+        year: match ? match[2] : ''
+      });
+    });
+
+    doc.querySelectorAll('.internships-section article.experience').forEach((article) => {
+      const companyTitle = article.querySelector('.company-title, .project-title');
+      const head = article.querySelector('.entry-head');
+      if (!companyTitle || !head) return;
+      const headStrong = [...head.querySelectorAll(':scope > strong')];
+      const summary = article.querySelector('.summary');
+      result.internships.push({
+        company: stripHtml(companyTitle.innerHTML),
+        role: stripHtml(headStrong[1]?.innerHTML || ''),
+        period: stripHtml(head.querySelector(':scope > span')?.innerHTML || ''),
+        title: stripHtml(article.querySelector('h3')?.innerHTML || ''),
+        summary: summary ? summary.innerHTML : '',
+        highlights: [...article.querySelectorAll('li')].map((li) => li.innerHTML)
+      });
+    });
+
+    doc.querySelectorAll('.projects-section article.experience').forEach((article) => {
+      const projectTitle = article.querySelector('.project-title');
+      const head = article.querySelector('.entry-head');
+      if (!projectTitle || !head) return;
+      const headStrong = [...head.querySelectorAll(':scope > strong')];
+      const summary = article.querySelector('.summary');
+      const link = article.querySelector('.project-link');
+      const badge = article.querySelector('.project-stat');
+      let summaryHtml = '';
+      if (summary) {
+        const summaryClone = summary.cloneNode(true);
+        summaryClone.querySelector('.project-stat')?.remove();
+        summaryHtml = summaryClone.innerHTML;
+      }
+      result.projects.push({
+        name: stripHtml(projectTitle.innerHTML),
+        role: stripHtml(headStrong[1]?.innerHTML || ''),
+        period: stripHtml(head.querySelector(':scope > span')?.innerHTML || ''),
+        link: link ? stripHtml(link.getAttribute('href') || '').replace(/^https?:\/\//, '') : '',
+        logo: projectTitle.querySelector('.project-logo')?.getAttribute('src') || '',
+        badge: badge ? stripHtml(badge.innerHTML) : '',
+        summary: summaryHtml,
+        highlights: [...article.querySelectorAll('li')].map((li) => li.innerHTML)
+      });
+    });
+
+    doc.querySelectorAll('.skills-list li').forEach((skill) => {
+      result.skills.push(skill.innerHTML);
+    });
+
+    return result.header ? result : null;
+  }
+
+  const headerMatch = html.match(/<p class="eyebrow">([\s\S]*?)<\/p>[\s\S]*?<h1>([\s\S]*?)<\/h1>[\s\S]*?<p class="identity-line">([\s\S]*?)<\/p>/);
+  if (headerMatch) {
+    result.header = {
+      ...data.header,
+      eyebrow: stripHtml(headerMatch[1]),
+      name: stripHtml(headerMatch[2]),
+      title: stripHtml(headerMatch[3])
+    };
+  }
+
+  const eduGrid = html.match(/<div class="education-grid">([\s\S]*?)<\/div><p class="info-line"/);
+  if (eduGrid) {
+    const eduRegex = /<div>([\s\S]*?)<\/div>/g;
+    const cells = [];
+    let cell;
+    while ((cell = eduRegex.exec(eduGrid[1]))) {
+      cells.push(stripHtml(cell[1]));
+    }
+    // Each education entry is 3 cells: school, major, period
+    for (let i = 0; i + 2 < cells.length; i += 3) {
+      result.education.push({
+        school: cells[i],
+        major: cells[i + 1],
+        period: cells[i + 2]
+      });
+    }
+  }
+
+  const infoRegex = /<p class="info-line"><strong>([\s\S]*?)：<\/strong>([\s\S]*?)<\/p>/g;
+  let match;
+  while ((match = infoRegex.exec(html))) {
+    result.infoLines.push({
+      label: stripHtml(match[1]),
+      value: stripHtml(match[2])
+    });
+  }
+
+  const publicationMatch = html.match(/<div class="publications">([\s\S]*?)<\/div><\/section>/);
+  if (publicationMatch) {
+    const publicationRegex = /<p>([\s\S]*?)\s+\(([\s\S]*?)\)<\/p>/g;
+    let pub;
+    while ((pub = publicationRegex.exec(publicationMatch[1]))) {
+      result.publications.push({
+        title: stripHtml(pub[1]),
+        year: stripHtml(pub[2])
+      });
+    }
+  }
+
+  const internshipSectionMatch = html.match(/<section class="section internships-section">([\s\S]*?)<\/section>/);
+  if (internshipSectionMatch) {
+    const internshipRegex = /<article class="experience">([\s\S]*?)<\/article>/g;
+    let internshipMatch;
+    while ((internshipMatch = internshipRegex.exec(internshipSectionMatch[1]))) {
+      const block = internshipMatch[1];
+      const headMatch = block.match(/<div class="entry-head">([\s\S]*?)<\/div>/);
+      const titleMatch = headMatch ? headMatch[1].match(/<strong class="(?:company-title|project-title)">([\s\S]*?)<\/strong>[\s\S]*?<strong>([\s\S]*?)<\/strong>[\s\S]*?<span>([\s\S]*?)<\/span>/) : null;
+      const h3Match = block.match(/<h3>([\s\S]*?)<\/h3>/);
+      const summaryMatch = block.match(/<p class="summary">([\s\S]*?)<\/p>/);
+      const highlightMatches = [...block.matchAll(/<li>([\s\S]*?)<\/li>/g)];
+      if (titleMatch) {
+        result.internships.push({
+          company: stripHtml(titleMatch[1]),
+          role: stripHtml(titleMatch[2]),
+          period: stripHtml(titleMatch[3]),
+          title: h3Match ? stripHtml(h3Match[1]) : '',
+          summary: summaryMatch ? summaryMatch[1] : '',
+          highlights: highlightMatches.map((m) => m[1])
+        });
+      }
+    }
+  }
+
+  const projectSectionMatch = html.match(/<section class="section projects-section">([\s\S]*?)<\/section>/);
+  const projectHtml = projectSectionMatch ? projectSectionMatch[1] : html;
+  const projectRegex = /<article class="experience">([\s\S]*?)<\/article>/g;
+  let projectMatch;
+  while ((projectMatch = projectRegex.exec(projectHtml))) {
+    const block = projectMatch[1];
+    const headMatch = block.match(/<div class="entry-head">([\s\S]*?)<\/div>/);
+    const titleMatch = headMatch ? headMatch[1].match(/<strong class="project-title">([\s\S]*?)<\/strong>[\s\S]*?<strong>([\s\S]*?)<\/strong>[\s\S]*?<span>([\s\S]*?)<\/span>/) : null;
+    const summaryMatch = block.match(/<p class="summary">([\s\S]*?)<\/p>/);
+    const highlightMatches = [...block.matchAll(/<li>([\s\S]*?)<\/li>/g)];
+    const linkMatch = block.match(/<h3><a class="project-link" href="https:\/\/([\s\S]*?)">/);
+    const badgeMatch = block.match(/<span class="project-stat">([\s\S]*?)<\/span>/);
+    if (titleMatch) {
+      result.projects.push({
+        name: stripHtml(titleMatch[1]),
+        role: stripHtml(titleMatch[2]),
+        period: stripHtml(titleMatch[3]),
+        link: linkMatch ? stripHtml(linkMatch[1]) : '',
+        logo: (() => {
+          const logoMatch = titleMatch[1].match(/<img[^>]+class="[^"]*\bproject-logo\b[^"]*"[^>]+src="([^"]+)"/);
+          return logoMatch ? stripHtml(logoMatch[1]) : '';
+        })(),
+        badge: badgeMatch ? stripHtml(badgeMatch[1]) : '',
+        summary: summaryMatch ? summaryMatch[1] : '',
+        highlights: highlightMatches.map((m) => m[1])
+      });
+    }
+  }
+
+  const skillsMatch = html.match(/<ul class="skills-list">([\s\S]*?)<\/ul>/);
+  if (skillsMatch) {
+    const skillRegex = /<li>([\s\S]*?)<\/li>/g;
+    let skill;
+    while ((skill = skillRegex.exec(skillsMatch[1]))) {
+      result.skills.push(skill[1]);
+    }
+  }
+
+  return result.header ? result : null;
+}
+
+function parseHTMLDocument(html) {
+  try {
+    return new DOMParser().parseFromString(String(html || ''), 'text/html');
+  } catch (e) {
+    return null;
+  }
+}
+
+function stripHtml(html) {
+  const template = document.createElement('template');
+  template.innerHTML = String(html || '');
+  return (template.content.textContent || '').replace(/\s+/g, ' ').trim();
+}
+
+function resetDefaults() {
+  if (!confirm('确定重新读取 index.html？未保存到 index.html 的编辑内容将丢失。')) return;
+  clearDraftStorage();
+  location.reload();
+}
+
+function clearDraftStorage() {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch(e) { /* ignore storage errors */ }
+}
+
+// Track which sections are expanded
+const expanded = {
+  header: true,
+  education: false,
+  infoLines: false,
+  publications: false,
+  internships: false,
+  projects: false,
+  skills: false
+};
+
+// ============================================================
+// Render Functions
+// ============================================================
+function renderSidebar() {
+  const root = document.getElementById('sidebar-root');
+  root.innerHTML = `
+    ${renderHeaderSection()}
+    ${renderEducationSection()}
+    ${renderInfoSection()}
+    ${renderPublicationsSection()}
+    ${renderInternshipsSection()}
+    ${renderProjectsSection()}
+    ${renderSkillsSection()}
+  `;
+  bindRichEditors();
+}
+
+function renderPreviewNow() {
+  const html = generateHTML();
+  document.getElementById('preview-frame').srcdoc = html;
+}
+
+function sectionHead(id, label, icon) {
+  const open = expanded[id] ? 'active' : '';
+  return `<div class="section-header ${open}" onclick="toggleSection('${id}')">
+    <span class="label"><span class="icon">${icon}</span>${label}</span>
+    <span class="toggle">▼</span>
+  </div>`;
+}
+
+function sectionBody(id, content) {
+  const open = expanded[id] ? 'open' : '';
+  return `<div class="section-body ${open}" id="body-${id}">${content}</div>`;
+}
+
+function getProjectLogoSrc(projectOrName) {
+  if (projectOrName && typeof projectOrName === 'object' && projectOrName.logo) {
+    return projectOrName.logo;
+  }
+  return '';
+}
+
+function projectLogoHTML(projectOrName) {
+  const name = typeof projectOrName === 'object' ? projectOrName.name : projectOrName;
+  const src = getProjectLogoSrc(projectOrName);
+  if (!src) return '';
+  return `<img class="project-logo" src="${escAttr(src)}" alt="${escAttr(name)} logo">`;
+}
+
+function toEditorHTML(value) {
+  return sanitizeRichHTML(String(value || '')) || '';
+}
+
+function renderRichTextField(value, path, options = {}) {
+  const rows = options.rows || 2;
+  const placeholder = options.placeholder || '';
+  const extraStyle = options.style ? ` style="${escAttr(options.style)}"` : '';
+  return `<div
+    class="rich-editor"
+    contenteditable="true"
+    role="textbox"
+    aria-multiline="true"
+    spellcheck="false"
+    data-path="${escAttr(path)}"
+    data-rows="${rows}"
+    data-placeholder="${escAttr(placeholder)}"
+    onfocus="handleRichTextFocus(this)"
+    oninput="handleRichTextInput(this)"
+    onblur="handleRichTextBlur(this)"
+    onkeydown="handleRichTextKeydown(event, this)"
+    onpaste="handleRichTextPaste(event, this)"${extraStyle}
+  >${toEditorHTML(value)}</div>`;
+}
+
+function renderImagePicker({ label, path, src, kind, previewClass = '', hint = '' }) {
+  const fileId = `image-upload-${path.replace(/[^a-z0-9]+/gi, '-')}`;
+  const preview = src
+    ? `<img src="${escAttr(src)}" alt="${escAttr(label)}预览">`
+    : `<span>无图</span>`;
+  const clearButton = src
+    ? `<button class="btn btn-sm" type="button" onclick="clearImageField('${escAttr(path)}')">清除</button>`
+    : '';
+  return `<div class="field-group image-picker">
+    <div class="field-label">${esc(label)}</div>
+    <div class="image-picker-row">
+      <div class="image-preview-box ${escAttr(previewClass)}">${preview}</div>
+      <div>
+        <div class="image-picker-actions">
+          <label class="btn btn-sm" for="${escAttr(fileId)}">选择图片</label>
+          ${clearButton}
+          <input
+            class="file-input-hidden"
+            id="${escAttr(fileId)}"
+            data-image-upload="${escAttr(path)}"
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/svg+xml"
+            onchange="handleImageFileInput(event, '${escAttr(path)}', '${escAttr(kind)}')"
+          >
+        </div>
+        <div class="image-picker-hint">${esc(hint || '支持 PNG/JPG/WebP/SVG；上传后可裁切并压缩。')}</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function sanitizeRichHTML(html) {
+  const template = document.createElement('template');
+  template.innerHTML = String(html || '');
+
+  const allowed = new Set(['B', 'STRONG', 'I', 'EM', 'BR']);
+  const isBoldElement = (el) => {
+    if (!el || el.nodeType !== Node.ELEMENT_NODE) return false;
+    const tag = el.tagName.toUpperCase();
+    if (tag === 'B' || tag === 'STRONG') return true;
+    const style = (el.getAttribute('style') || '').toLowerCase().replace(/\s+/g, '');
+    if (!style) return false;
+    return /font-weight:(bold|[5-9]00)/.test(style);
+  };
+  const isItalicElement = (el) => {
+    if (!el || el.nodeType !== Node.ELEMENT_NODE) return false;
+    const tag = el.tagName.toUpperCase();
+    if (tag === 'I' || tag === 'EM') return true;
+    const style = (el.getAttribute('style') || '').toLowerCase().replace(/\s+/g, '');
+    return style.includes('font-style:italic');
+  };
+
+  const walk = (node) => {
+    Array.from(node.childNodes).forEach((child) => {
+      if (child.nodeType === Node.TEXT_NODE) return;
+      if (child.nodeType !== Node.ELEMENT_NODE) {
+        child.remove();
+        return;
+      }
+
+      const tag = child.tagName.toUpperCase();
+      if (!allowed.has(tag)) {
+        if (isBoldElement(child)) {
+          const strong = document.createElement('strong');
+          strong.innerHTML = child.innerHTML;
+          child.replaceWith(strong);
+          walk(strong);
+          return;
+        }
+        if (isItalicElement(child)) {
+          const em = document.createElement('em');
+          em.innerHTML = child.innerHTML;
+          child.replaceWith(em);
+          walk(em);
+          return;
+        }
+        const text = document.createTextNode(child.textContent || '');
+        child.replaceWith(text);
+        return;
+      }
+
+      if (isBoldElement(child)) {
+        const strong = document.createElement('strong');
+        strong.innerHTML = child.innerHTML;
+        child.replaceWith(strong);
+        walk(strong);
+        return;
+      }
+      if (isItalicElement(child)) {
+        const em = document.createElement('em');
+        em.innerHTML = child.innerHTML;
+        child.replaceWith(em);
+        walk(em);
+        return;
+      }
+
+      Array.from(child.attributes).forEach((attr) => child.removeAttribute(attr.name));
+      walk(child);
+    });
+  };
+
+  walk(template.content);
+  return template.innerHTML.replace(/<div>/gi, '<br>').replace(/<\/div>/gi, '');
+}
+
+function normalizeRichContent(html) {
+  const sanitized = sanitizeRichHTML(html);
+  const template = document.createElement('template');
+  template.innerHTML = sanitized;
+  const text = template.content.textContent || '';
+  const plain = text.trim();
+  return plain ? sanitized : '';
+}
+
+function getPathValue(path) {
+  return String(path || '').split('.').reduce((obj, part) => {
+    if (obj == null) return undefined;
+    const key = /^\d+$/.test(part) ? Number(part) : part;
+    return obj[key];
+  }, data);
+}
+
+function setPathValue(path, value) {
+  const parts = String(path || '').split('.');
+  let obj = data;
+  for (let i = 0; i < parts.length - 1; i += 1) {
+    const key = /^\d+$/.test(parts[i]) ? Number(parts[i]) : parts[i];
+    if (obj[key] == null) obj[key] = {};
+    obj = obj[key];
+  }
+  const last = parts[parts.length - 1];
+  obj[/^\d+$/.test(last) ? Number(last) : last] = value;
+}
+
+function clearImageField(path) {
+  setPathValue(path, '');
+  captureAndCommitUndo();
+  renderSidebar();
+  renderPreviewNow();
+}
+
+const IMAGE_LIMITS = {
+  avatar: { title: '裁切头像', aspect: '3:4', width: 360, height: 480 },
+  'project-logo': { title: '裁切项目 logo', aspect: '1:1', width: 256, height: 256 }
+};
+
+let cropState = null;
+
+function parseAspect(value) {
+  if (!value || value === 'free') return null;
+  const [w, h] = value.split(':').map(Number);
+  if (!w || !h) return null;
+  return w / h;
+}
+
+function handleImageFileInput(event, path, kind) {
+  const input = event.target;
+  const file = input.files && input.files[0];
+  input.value = '';
+  if (!file) return;
+
+  if (!file.type.startsWith('image/')) {
+    showToast('❌ 请选择图片文件');
+    return;
+  }
+
+  if (file.size > 8 * 1024 * 1024) {
+    showToast('❌ 图片过大，请选择 8MB 以内的图片');
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = () => openImageCropper(String(reader.result || ''), path, kind, file.type);
+  reader.onerror = () => showToast('❌ 图片读取失败');
+  reader.readAsDataURL(file);
+}
+
+function openImageCropper(src, path, kind, mimeType = 'image/png') {
+  const settings = IMAGE_LIMITS[kind] || IMAGE_LIMITS['project-logo'];
+  const modal = document.getElementById('image-crop-modal');
+  const image = document.getElementById('crop-image');
+  const zoom = document.getElementById('crop-zoom');
+  const title = document.querySelector('#image-crop-modal .crop-title');
+
+  cropState = {
+    src,
+    path,
+    kind,
+    mimeType,
+    aspect: settings.aspect,
+    zoom: 1,
+    imageNaturalWidth: 0,
+    imageNaturalHeight: 0,
+    imageRect: null,
+    crop: null,
+    dragging: false,
+    dragOffsetX: 0,
+    dragOffsetY: 0
+  };
+
+  title.textContent = settings.title;
+  zoom.value = '1';
+  [...document.querySelectorAll('input[name="crop-aspect"]')].forEach((input) => {
+    input.checked = input.value === settings.aspect;
+  });
+  image.onload = () => {
+    cropState.imageNaturalWidth = image.naturalWidth;
+    cropState.imageNaturalHeight = image.naturalHeight;
+    resetCropBox();
+  };
+  image.src = src;
+  modal.classList.add('show');
+  modal.setAttribute('aria-hidden', 'false');
+}
+
+function resetCropBox() {
+  if (!cropState) return;
+  const stage = document.getElementById('crop-stage');
+  const image = document.getElementById('crop-image');
+  const stageRect = stage.getBoundingClientRect();
+  const naturalRatio = cropState.imageNaturalWidth / cropState.imageNaturalHeight;
+  let width = stageRect.width;
+  let height = width / naturalRatio;
+  if (height > stageRect.height) {
+    height = stageRect.height;
+    width = height * naturalRatio;
+  }
+  width *= cropState.zoom;
+  height *= cropState.zoom;
+  const left = (stageRect.width - width) / 2;
+  const top = (stageRect.height - height) / 2;
+  cropState.imageRect = { left, top, width, height };
+  image.style.width = `${width}px`;
+  image.style.height = `${height}px`;
+
+  const aspect = parseAspect(cropState.aspect);
+  let cropW = Math.min(width, stageRect.width) * 0.72;
+  let cropH = aspect ? cropW / aspect : Math.min(height, stageRect.height) * 0.72;
+  if (cropH > Math.min(height, stageRect.height) * 0.82 && aspect) {
+    cropH = Math.min(height, stageRect.height) * 0.82;
+    cropW = cropH * aspect;
+  }
+  cropW = Math.min(cropW, width);
+  cropH = Math.min(cropH, height);
+  if (aspect && cropW / cropH > aspect) {
+    cropW = cropH * aspect;
+  } else if (aspect && cropW / cropH < aspect) {
+    cropH = cropW / aspect;
+  }
+  cropState.crop = {
+    left: Math.max(left, left + (width - cropW) / 2),
+    top: Math.max(top, top + (height - cropH) / 2),
+    width: cropW,
+    height: cropH
+  };
+  clampCropToImage();
+  renderCropBox();
+}
+
+function renderCropBox() {
+  if (!cropState?.crop) return;
+  const box = document.getElementById('crop-box');
+  const crop = cropState.crop;
+  box.style.left = `${crop.left}px`;
+  box.style.top = `${crop.top}px`;
+  box.style.width = `${crop.width}px`;
+  box.style.height = `${crop.height}px`;
+}
+
+function handleCropZoomInput(value) {
+  if (!cropState) return;
+  cropState.zoom = Number(value) || 1;
+  resetCropBox();
+}
+
+function setCropAspectFromControl(value) {
+  if (!cropState) return;
+  cropState.aspect = value;
+  resetCropBox();
+}
+
+function getVisibleImageBounds() {
+  if (!cropState?.imageRect) return null;
+  const stage = document.getElementById('crop-stage');
+  const stageRect = stage.getBoundingClientRect();
+  const imageRect = cropState.imageRect;
+  const left = Math.max(0, imageRect.left);
+  const top = Math.max(0, imageRect.top);
+  const right = Math.min(stageRect.width, imageRect.left + imageRect.width);
+  const bottom = Math.min(stageRect.height, imageRect.top + imageRect.height);
+  return {
+    left,
+    top,
+    width: Math.max(0, right - left),
+    height: Math.max(0, bottom - top)
+  };
+}
+
+function clampCropToImage() {
+  if (!cropState?.crop) return;
+  const rect = getVisibleImageBounds();
+  if (!rect) return;
+  const crop = cropState.crop;
+  if (rect.width <= 0 || rect.height <= 0) return;
+  crop.left = Math.min(Math.max(rect.left, crop.left), rect.left + rect.width - crop.width);
+  crop.top = Math.min(Math.max(rect.top, crop.top), rect.top + rect.height - crop.height);
+}
+
+function bindCropInteractions() {
+  const box = document.getElementById('crop-box');
+  box.addEventListener('pointerdown', (event) => {
+    if (!cropState?.crop) return;
+    cropState.dragging = true;
+    cropState.dragOffsetX = event.clientX - cropState.crop.left;
+    cropState.dragOffsetY = event.clientY - cropState.crop.top;
+    box.setPointerCapture(event.pointerId);
+  });
+  box.addEventListener('pointermove', (event) => {
+    if (!cropState?.dragging || !cropState.crop) return;
+    cropState.crop.left = event.clientX - cropState.dragOffsetX;
+    cropState.crop.top = event.clientY - cropState.dragOffsetY;
+    clampCropToImage();
+    renderCropBox();
+  });
+  const endDrag = (event) => {
+    if (!cropState) return;
+    cropState.dragging = false;
+    try { box.releasePointerCapture(event.pointerId); } catch (e) { /* ignore stale pointer */ }
+  };
+  box.addEventListener('pointerup', endDrag);
+  box.addEventListener('pointercancel', endDrag);
+}
+
+function cancelImageCrop() {
+  const modal = document.getElementById('image-crop-modal');
+  modal.classList.remove('show');
+  modal.setAttribute('aria-hidden', 'true');
+  document.getElementById('crop-image').removeAttribute('src');
+  cropState = null;
+}
+
+async function confirmImageCrop() {
+  if (!cropState?.crop || !cropState.imageRect) return;
+  const settings = IMAGE_LIMITS[cropState.kind] || IMAGE_LIMITS['project-logo'];
+  const image = document.getElementById('crop-image');
+  const crop = cropState.crop;
+  const imageRect = cropState.imageRect;
+  const scaleX = cropState.imageNaturalWidth / imageRect.width;
+  const scaleY = cropState.imageNaturalHeight / imageRect.height;
+  const sourceX = Math.max(0, (crop.left - imageRect.left) * scaleX);
+  const sourceY = Math.max(0, (crop.top - imageRect.top) * scaleY);
+  const sourceW = Math.min(crop.width * scaleX, cropState.imageNaturalWidth - sourceX);
+  const sourceH = Math.min(crop.height * scaleY, cropState.imageNaturalHeight - sourceY);
+  const canvas = document.createElement('canvas');
+  canvas.width = settings.width;
+  canvas.height = settings.height;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(image, sourceX, sourceY, sourceW, sourceH, 0, 0, canvas.width, canvas.height);
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
+  setPathValue(cropState.path, dataUrl);
+  cancelImageCrop();
+  captureAndCommitUndo();
+  renderSidebar();
+  renderPreviewNow();
+  showToast('✅ 图片已裁切并插入');
+}
+
+function setRichFieldValue(el, html) {
+  el.innerHTML = toEditorHTML(html);
+}
+
+function getRichFieldPath(path) {
+  const parts = path.split('.');
+  let target = data;
+  for (let i = 0; i < parts.length - 1; i++) target = target[parts[i]];
+  return { target, key: parts[parts.length - 1] };
+}
+
+function updateRichField(path, html) {
+  const { target, key } = getRichFieldPath(path);
+  target[key] = normalizeRichContent(html);
+}
+
+function handleRichTextInput(el) {
+  updateRichField(el.dataset.path, el.innerHTML);
+  activeEditPath = el.dataset.path;
+}
+
+function handleRichTextFocus(el) {
+  activeEditPath = el.dataset.path;
+  activeEditSnapshot = captureUndoSnapshot();
+}
+
+function handleRichTextBlur(el) {
+  updateRichField(el.dataset.path, el.innerHTML);
+  captureAndCommitUndo();
+  activeEditPath = null;
+  activeEditSnapshot = null;
+  renderPreviewNow();
+}
+
+function getRichEditorFromNode(node) {
+  if (!node) return null;
+  if (node.nodeType === Node.ELEMENT_NODE) return node.closest('.rich-editor');
+  if (node.parentElement) return node.parentElement.closest('.rich-editor');
+  return null;
+}
+
+function getSelectedRichEditor() {
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0) return null;
+  const anchorEditor = getRichEditorFromNode(selection.anchorNode);
+  const focusEditor = getRichEditorFromNode(selection.focusNode);
+  if (!anchorEditor || anchorEditor !== focusEditor) return null;
+  return anchorEditor;
+}
+
+function selectNodeContents(node) {
+  const selection = window.getSelection();
+  if (!selection || !node) return;
+  const rangeFactory = typeof Range !== 'undefined'
+    ? () => new Range()
+    : () => document.createRange();
+  const range = rangeFactory();
+  range.selectNodeContents(node);
+  selection.removeAllRanges();
+  selection.addRange(range);
+}
+
+function selectionHasFormat(range, tagName) {
+  if (!range) return false;
+  const nodes = [range.commonAncestorContainer, ...Array.from(range.cloneContents().querySelectorAll(tagName))];
+  const targetTag = tagName.toUpperCase();
+  return nodes.some((node) => {
+    if (!node) return false;
+    if (node.nodeType === Node.ELEMENT_NODE && node.tagName.toUpperCase() === targetTag) return true;
+    let current = node.parentElement;
+    while (current) {
+      if (current.tagName && current.tagName.toUpperCase() === targetTag) return true;
+      current = current.parentElement;
+    }
+    return false;
+  });
+}
+
+function saveCurrentSelection() {
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
+    savedSelection = null;
+    return false;
+  }
+  savedSelection = selection.getRangeAt(0).cloneRange();
+  return true;
+}
+
+function restoreSavedSelection() {
+  if (!savedSelection) return false;
+  const selection = window.getSelection();
+  if (!selection) return false;
+  selection.removeAllRanges();
+  selection.addRange(savedSelection);
+  return true;
+}
+
+function wrapSelectionWithTag(editor, tagName) {
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0 || selection.isCollapsed) return false;
+
+  const range = selection.getRangeAt(0);
+  if (!editor.contains(range.commonAncestorContainer)) return false;
+
+  const targetTag = tagName.toUpperCase();
+  const shouldRemove = selectionHasFormat(range, targetTag);
+  if (shouldRemove) {
+    const fragment = range.extractContents();
+    const wrapper = document.createElement('div');
+    wrapper.appendChild(fragment);
+    wrapper.querySelectorAll(targetTag).forEach((node) => {
+      const parent = node.parentNode;
+      while (node.firstChild) parent.insertBefore(node.firstChild, node);
+      parent.removeChild(node);
+    });
+    const nodes = Array.from(wrapper.childNodes);
+    nodes.forEach((node) => range.insertNode(node));
+    selectNodeContents(editor);
+    saveCurrentSelection();
+    return true;
+  }
+
+  const fragment = range.extractContents();
+  const wrapper = document.createElement(tagName);
+  wrapper.appendChild(fragment);
+  range.insertNode(wrapper);
+  selectNodeContents(wrapper);
+  saveCurrentSelection();
+  return true;
+}
+
+function applyInlineFormat(editor, format) {
+  if (!editor) return false;
+  const tagName = format === 'italic' ? 'em' : 'strong';
+  const applied = wrapSelectionWithTag(editor, tagName);
+  if (!applied) return false;
+  updateRichField(editor.dataset.path, editor.innerHTML);
+  return true;
+}
+
+function handleRichTextKeydown(event, el) {
+  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'b') {
+    event.preventDefault();
+    applyInlineFormat(el, 'bold');
+  }
+  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'i') {
+    event.preventDefault();
+    applyInlineFormat(el, 'italic');
+  }
+}
+
+function handleRichTextPaste(event, el) {
+  event.preventDefault();
+  const text = (event.clipboardData || window.clipboardData).getData('text/plain');
+  document.execCommand('insertText', false, text);
+  updateRichField(el.dataset.path, el.innerHTML);
+}
+
+function bindRichEditors() {
+  document.querySelectorAll('.rich-editor').forEach((el) => {
+    const { target, key } = getRichFieldPath(el.dataset.path);
+    setRichFieldValue(el, target[key]);
+  });
+}
+
+function handleGlobalRichTextShortcuts(event) {
+  if (!(event.ctrlKey || event.metaKey)) return;
+  const key = event.key.toLowerCase();
+  if (key === 'z') {
+    event.preventDefault();
+    undoLastAction();
+    return;
+  }
+  if (key === 's') {
+    event.preventDefault();
+    saveToServer();
+    return;
+  }
+  if (key !== 'b' && key !== 'i') return;
+  const editor = getSelectedRichEditor() || getRichEditorFromNode(document.activeElement);
+  if (!editor) return;
+  event.preventDefault();
+  applyInlineFormat(editor, key === 'i' ? 'italic' : 'bold');
+}
+
+function getFloatingToolbar() {
+  return document.getElementById('floating-toolbar');
+}
+
+function hideFloatingToolbar() {
+  const toolbar = getFloatingToolbar();
+  toolbar.classList.remove('show');
+  toolbar.setAttribute('aria-hidden', 'true');
+}
+
+function positionFloatingToolbar(rect) {
+  const toolbar = getFloatingToolbar();
+  const toolbarRect = toolbar.getBoundingClientRect();
+  const top = Math.max(60, rect.top - toolbarRect.height - 10);
+  const left = Math.min(
+    window.innerWidth - toolbarRect.width - 12,
+    Math.max(12, rect.left + (rect.width - toolbarRect.width) / 2)
+  );
+  toolbar.style.top = `${top}px`;
+  toolbar.style.left = `${left}px`;
+}
+
+function updateFloatingToolbar() {
+  const selection = window.getSelection();
+  const editor = getSelectedRichEditor();
+  if (!selection || !editor || selection.isCollapsed || selection.rangeCount === 0) {
+    hideFloatingToolbar();
+    return;
+  }
+
+  saveCurrentSelection();
+  const toolbar = getFloatingToolbar();
+  toolbar.classList.add('show');
+  toolbar.setAttribute('aria-hidden', 'false');
+  const rect = selection.getRangeAt(0).getBoundingClientRect();
+  positionFloatingToolbar(rect);
+}
+
+function handleToolbarMouseDown(event) {
+  event.preventDefault();
+}
+
+function applyFormatFromToolbar(format) {
+  if (!restoreSavedSelection()) return;
+  const editor = getSelectedRichEditor();
+  if (!editor) return;
+  applyInlineFormat(editor, format);
+  updateFloatingToolbar();
+}
+
+function handleDocumentSelectionChange() {
+  window.setTimeout(updateFloatingToolbar, 0);
+}
+
+// --- Header ---
+function renderHeaderSection() {
+  const h = data.header;
+  return `<div class="section-card">
+    ${sectionHead('header', '📋 个人信息', '')}
+    ${sectionBody('header', `
+      <div class="field-group">
+        <div class="field-label">姓名</div>
+        <input type="text" value="${esc(h.name)}" oninput="data.header.name=this.value; renderPreviewNow()">
+      </div>
+      <div class="field-group">
+        <div class="field-label">标题标签</div>
+        <input type="text" value="${esc(h.eyebrow)}" oninput="data.header.eyebrow=this.value; renderPreviewNow()">
+      </div>
+      <div class="field-group">
+        <div class="field-label">身份行</div>
+        <input type="text" value="${esc(h.title)}" oninput="data.header.title=this.value; renderPreviewNow()">
+      </div>
+      <div class="field-group">
+        <div class="field-label">电话</div>
+        <input type="text" value="${esc(h.phone)}" oninput="data.header.phone=this.value; renderPreviewNow()">
+      </div>
+      <div class="field-group">
+        <div class="field-label">邮箱</div>
+        <input type="text" value="${esc(h.email)}" oninput="data.header.email=this.value; renderPreviewNow()">
+      </div>
+      <div class="field-group">
+        <div class="field-label">GitHub</div>
+        <input type="text" value="${esc(h.github)}" oninput="data.header.github=this.value; renderPreviewNow()">
+      </div>
+      ${renderImagePicker({
+        label: '证件照',
+        path: 'header.photo',
+        src: h.photo,
+        kind: 'avatar',
+        previewClass: 'avatar',
+        hint: '推荐证件照比例 3:4；比例不合适时可在上传后裁切。'
+      })}
+    `)}
+  </div>`;
+}
+
+// --- Education ---
+function renderEducationSection() {
+  let items = '';
+  data.education.forEach((e, i) => {
+    items += `<div class="list-item">
+      <div class="item-header">
+        <span class="item-title">🏫 ${esc(e.school)}</span>
+        <span class="item-remove" onclick="removeEducation(${i})">✕</span>
+      </div>
+      <div class="item-fields">
+        <input type="text" value="${esc(e.school)}" placeholder="学校" oninput="data.education[${i}].school=this.value; renderPreviewNow()">
+        <input type="text" value="${esc(e.major)}" placeholder="专业" oninput="data.education[${i}].major=this.value; renderPreviewNow()">
+        <input type="text" value="${esc(e.period)}" placeholder="时间" oninput="data.education[${i}].period=this.value; renderPreviewNow()">
+      </div>
+    </div>`;
+  });
+  return `<div class="section-card">
+    ${sectionHead('education', '🎓 教育背景', '')}
+    ${sectionBody('education', `
+      <div class="list-items">${items}</div>
+      <div class="add-btn" onclick="addEducation()">＋ 添加教育经历</div>
+    `)}
+  </div>`;
+}
+
+// --- Info Lines (awards, competitions, research) ---
+function renderInfoSection() {
+  let items = '';
+  data.infoLines.forEach((info, i) => {
+    items += `<div class="list-item">
+      <div class="item-header">
+        <span class="item-title">📌 ${esc(info.label)}</span>
+        <span class="item-remove" onclick="removeInfoLine(${i})">✕</span>
+      </div>
+      <div class="item-fields">
+        <input type="text" value="${esc(info.label)}" placeholder="标签" oninput="data.infoLines[${i}].label=this.value; renderPreviewNow()">
+        ${renderRichTextField(info.value, `infoLines.${i}.value`, { rows: 2 })}
+      </div>
+    </div>`;
+  });
+  return `<div class="section-card">
+    ${sectionHead('infoLines', '🏆 荣誉/竞赛/科研', '')}
+    ${sectionBody('infoLines', `
+      <div class="list-items">${items}</div>
+      <div class="add-btn" onclick="addInfoLine()">＋ 添加信息行</div>
+    `)}
+  </div>`;
+}
+
+// --- Publications ---
+function renderPublicationsSection() {
+  let items = '';
+  data.publications.forEach((p, i) => {
+    items += `<div class="list-item">
+      <div class="item-header">
+        <span class="item-title">📄 ${esc(p.title.substring(0, 30))}…</span>
+        <span class="item-remove" onclick="removePublication(${i})">✕</span>
+      </div>
+      <div class="item-fields">
+        ${renderRichTextField(p.title, `publications.${i}.title`, { rows: 2 })}
+        <input type="text" value="${esc(p.year)}" placeholder="年份" oninput="data.publications[${i}].year=this.value; renderPreviewNow()">
+      </div>
+    </div>`;
+  });
+  return `<div class="section-card">
+    ${sectionHead('publications', '📝 论文发表', '')}
+    ${sectionBody('publications', `
+      <div class="list-items">${items}</div>
+      <div class="add-btn" onclick="addPublication()">＋ 添加论文</div>
+    `)}
+  </div>`;
+}
+
+// --- Internships ---
+function renderInternshipsSection() {
+  let items = '';
+  data.internships.forEach((item, i) => {
+    let highlightsHtml = '';
+    item.highlights.forEach((h, j) => {
+      highlightsHtml += `<div class="list-item" style="background:#fff;padding:6px 8px;">
+        <div style="display:flex;gap:4px;align-items:stretch;">
+          ${renderRichTextField(h, `internships.${i}.highlights.${j}`, { rows: 2, style: 'flex:1;font-size:12px;min-height:36px;' })}
+          <div class="move-controls">
+            <button class="move-btn" type="button" onclick="moveInternshipHighlight(${i},${j},-1)" ${j===0?'disabled':''} title="上移">▲</button>
+            <button class="move-btn" type="button" onclick="moveInternshipHighlight(${i},${j},1)" ${j===item.highlights.length-1?'disabled':''} title="下移">▼</button>
+          </div>
+          <button class="item-remove" type="button" onclick="removeInternshipHighlight(${i},${j})" aria-label="删除亮点" title="删除">✕</button>
+        </div>
+      </div>`;
+    });
+    items += `<div class="list-item">
+      <div class="item-header">
+        <span class="item-title">${esc(item.company)}</span>
+        <div class="move-controls">
+          <button class="move-btn" type="button" onclick="moveInternship(${i},-1)" ${i===0?'disabled':''} title="上移">▲</button>
+          <button class="move-btn" type="button" onclick="moveInternship(${i},1)" ${i===data.internships.length-1?'disabled':''} title="下移">▼</button>
+          <button class="item-remove" type="button" onclick="removeInternship(${i})" aria-label="删除实习" title="删除">✕</button>
+        </div>
+      </div>
+      <div class="item-fields">
+        <input type="text" value="${esc(item.company)}" placeholder="公司名称" oninput="data.internships[${i}].company=this.value; renderPreviewNow()">
+        <input type="text" value="${esc(item.role)}" placeholder="岗位/角色" oninput="data.internships[${i}].role=this.value; renderPreviewNow()">
+        <input type="text" value="${esc(item.period)}" placeholder="时间" oninput="data.internships[${i}].period=this.value; renderPreviewNow()">
+        <input type="text" value="${esc(item.title)}" placeholder="经历标题" oninput="data.internships[${i}].title=this.value; renderPreviewNow()">
+        ${renderRichTextField(item.summary, `internships.${i}.summary`, { rows: 2, placeholder: '实习背景/摘要' })}
+        <div class="field-label" style="margin-top:4px;">亮点（bullet points）</div>
+        <div class="list-items">${highlightsHtml}</div>
+        <div class="add-btn" onclick="addInternshipHighlight(${i})" style="margin-top:4px;">＋ 添加亮点</div>
+      </div>
+    </div>`;
+  });
+  return `<div class="section-card">
+    ${sectionHead('internships', '💼 实习经历', '')}
+    ${sectionBody('internships', `
+      <div class="list-items">${items}</div>
+      <div class="add-btn" onclick="addInternship()">＋ 添加实习经历</div>
+    `)}
+  </div>`;
+}
+
+// --- Projects ---
+function renderProjectsSection() {
+  let items = '';
+  data.projects.forEach((proj, i) => {
+    let highlightsHtml = '';
+    proj.highlights.forEach((h, j) => {
+      highlightsHtml += `<div class="list-item" style="background:#fff;padding:6px 8px;">
+        <div style="display:flex;gap:4px;align-items:stretch;">
+          ${renderRichTextField(h, `projects.${i}.highlights.${j}`, { rows: 2, style: 'flex:1;font-size:12px;min-height:36px;' })}
+          <div class="move-controls">
+            <button class="move-btn" type="button" onclick="moveHighlight(${i},${j},-1)" ${j===0?'disabled':''} title="上移">▲</button>
+            <button class="move-btn" type="button" onclick="moveHighlight(${i},${j},1)" ${j===proj.highlights.length-1?'disabled':''} title="下移">▼</button>
+          </div>
+          <button class="item-remove" type="button" onclick="removeHighlight(${i},${j})" aria-label="删除亮点" title="删除">✕</button>
+        </div>
+      </div>`;
+    });
+    items += `<div class="list-item">
+      <div class="item-header">
+        <span class="item-title">${projectLogoHTML(proj)}${esc(proj.name)}</span>
+        <div class="move-controls">
+          <button class="move-btn" type="button" onclick="moveProject(${i},-1)" ${i===0?'disabled':''} title="上移">▲</button>
+          <button class="move-btn" type="button" onclick="moveProject(${i},1)" ${i===data.projects.length-1?'disabled':''} title="下移">▼</button>
+          <button class="item-remove" type="button" onclick="removeProject(${i})" aria-label="删除项目" title="删除">✕</button>
+        </div>
+      </div>
+      <div class="item-fields">
+        <input type="text" value="${esc(proj.name)}" placeholder="项目名称" oninput="data.projects[${i}].name=this.value; renderPreviewNow()">
+        <input type="text" value="${esc(proj.role)}" placeholder="角色" oninput="data.projects[${i}].role=this.value; renderPreviewNow()">
+        <input type="text" value="${esc(proj.period)}" placeholder="时间" oninput="data.projects[${i}].period=this.value; renderPreviewNow()">
+        <input type="text" value="${esc(proj.link)}" placeholder="链接" oninput="data.projects[${i}].link=this.value; renderPreviewNow()">
+        <input type="text" value="${esc(proj.badge || '')}" placeholder="徽标（可选）" oninput="data.projects[${i}].badge=this.value; renderPreviewNow()">
+        ${renderImagePicker({
+          label: '项目 logo',
+          path: `projects.${i}.logo`,
+          src: proj.logo || '',
+          kind: 'project-logo',
+          hint: '推荐方形 1:1；上传后可裁切为方形小图标。'
+        })}
+        ${renderRichTextField(proj.summary, `projects.${i}.summary`, { rows: 2, placeholder: '项目摘要' })}
+        <div class="field-label" style="margin-top:4px;">亮点（bullet points）</div>
+        <div class="list-items">${highlightsHtml}</div>
+        <div class="add-btn" onclick="addHighlight(${i})" style="margin-top:4px;">＋ 添加亮点</div>
+      </div>
+    </div>`;
+  });
+  return `<div class="section-card">
+    ${sectionHead('projects', '💻 项目经历', '')}
+    ${sectionBody('projects', `
+      <div class="list-items">${items}</div>
+      <div class="add-btn" onclick="addProject()">＋ 添加项目</div>
+    `)}
+  </div>`;
+}
+
+// --- Skills ---
+function renderSkillsSection() {
+  let items = '';
+  data.skills.forEach((s, i) => {
+    items += `<div class="list-item" style="padding:6px 10px;">
+      <div style="display:flex;gap:4px;align-items:center;">
+        ${renderRichTextField(s, `skills.${i}`, { rows: 1, style: 'flex:1;font-size:12px;min-height:28px;' })}
+        <span class="item-remove" onclick="removeSkill(${i})" style="font-size:14px;">✕</span>
+      </div>
+    </div>`;
+  });
+  return `<div class="section-card">
+    ${sectionHead('skills', '🔧 专业技能', '')}
+    ${sectionBody('skills', `
+      <div class="list-items">${items}</div>
+      <div class="add-btn" onclick="addSkill()">＋ 添加技能</div>
+    `)}
+  </div>`;
+}
+
+// ============================================================
+// Add / Remove Helpers
+// ============================================================
+function toggleSection(id) { expanded[id] = !expanded[id]; renderSidebar(); renderPreviewNow(); }
+function addEducation() { data.education.push({school:'新学校', major:'专业', period:'年份'}); captureAndCommitUndo(); renderSidebar(); renderPreviewNow(); }
+function removeEducation(i) { data.education.splice(i,1); captureAndCommitUndo(); renderSidebar(); renderPreviewNow(); }
+function addInfoLine() { data.infoLines.push({label:'新标签', value:'内容'}); normalizeData(); captureAndCommitUndo(); renderSidebar(); renderPreviewNow(); }
+function removeInfoLine(i) { data.infoLines.splice(i,1); captureAndCommitUndo(); renderSidebar(); renderPreviewNow(); }
+function addPublication() { data.publications.push({title:'新论文标题', year:'2026'}); normalizeData(); captureAndCommitUndo(); renderSidebar(); renderPreviewNow(); }
+function removePublication(i) { data.publications.splice(i,1); captureAndCommitUndo(); renderSidebar(); renderPreviewNow(); }
+function addInternship() { data.internships.push({company:'新公司', role:'岗位', period:'时间', title:'经历标题', summary:'项目背景：', highlights:['新亮点描述']}); normalizeData(); captureAndCommitUndo(); renderSidebar(); renderPreviewNow(); }
+function removeInternship(i) { data.internships.splice(i,1); captureAndCommitUndo(); renderSidebar(); renderPreviewNow(); }
+function addInternshipHighlight(i) { data.internships[i].highlights.push('新亮点描述'); normalizeData(); captureAndCommitUndo(); renderSidebar(); renderPreviewNow(); }
+function removeInternshipHighlight(i, j) { data.internships[i].highlights.splice(j,1); captureAndCommitUndo(); renderSidebar(); renderPreviewNow(); }
+function moveInternship(index, delta) {
+  const next = index + delta;
+  if (next < 0 || next >= data.internships.length) return;
+  const [item] = data.internships.splice(index, 1);
+  data.internships.splice(next, 0, item);
+  captureAndCommitUndo();
+  renderSidebar();
+  renderPreviewNow();
+}
+function moveInternshipHighlight(i, j, delta) {
+  const highlights = data.internships[i]?.highlights;
+  if (!highlights) return;
+  const next = j + delta;
+  if (next < 0 || next >= highlights.length) return;
+  const [item] = highlights.splice(j, 1);
+  highlights.splice(next, 0, item);
+  captureAndCommitUndo();
+  renderSidebar();
+  renderPreviewNow();
+}
+function addProject() { data.projects.push({name:'新项目', role:'角色', period:'时间', link:'', logo:'', badge:'', summary:'项目简介', highlights:['亮点1']}); normalizeData(); captureAndCommitUndo(); renderSidebar(); renderPreviewNow(); }
+function removeProject(i) { data.projects.splice(i,1); captureAndCommitUndo(); renderSidebar(); renderPreviewNow(); }
+function addHighlight(pi) { data.projects[pi].highlights.push('新亮点描述'); normalizeData(); captureAndCommitUndo(); renderSidebar(); renderPreviewNow(); }
+function removeHighlight(pi, hi) { data.projects[pi].highlights.splice(hi,1); captureAndCommitUndo(); renderSidebar(); renderPreviewNow(); }
+function moveProject(index, delta) {
+  const next = index + delta;
+  if (next < 0 || next >= data.projects.length) return;
+  const [item] = data.projects.splice(index, 1);
+  data.projects.splice(next, 0, item);
+  captureAndCommitUndo();
+  renderSidebar();
+  renderPreviewNow();
+}
+function moveHighlight(pi, hi, delta) {
+  const highlights = data.projects[pi]?.highlights;
+  if (!highlights) return;
+  const next = hi + delta;
+  if (next < 0 || next >= highlights.length) return;
+  const [item] = highlights.splice(hi, 1);
+  highlights.splice(next, 0, item);
+  captureAndCommitUndo();
+  renderSidebar();
+  renderPreviewNow();
+}
+function addSkill() { data.skills.push('新技能描述'); normalizeData(); captureAndCommitUndo(); renderSidebar(); renderPreviewNow(); }
+function removeSkill(i) { data.skills.splice(i,1); captureAndCommitUndo(); renderSidebar(); renderPreviewNow(); }
+
+// ============================================================
+// CSS Inline & Icons for Preview
+// ============================================================
+function inlineCSS() {
+  // Core styles from styles.css - minimal set for preview
+  return `*{box-sizing:border-box}html,body{margin:0;min-height:100%}
+body{background:#eef2f7;color:#141414;font-family:"Noto Sans CJK SC","Microsoft YaHei","PingFang SC","Heiti SC",Arial,sans-serif;line-height:1.2}
+.icon,.section-icon{display:inline-block;fill:none;flex:0 0 auto;stroke:currentColor;stroke-linecap:round;stroke-linejoin:round;stroke-width:2}
+.icon{height:16px;width:16px}
+.page{background:#fff;border:1px solid rgba(148,163,184,.22);box-shadow:0 18px 60px rgba(15,23,42,.14);margin:0 auto 32px;min-height:1120px;overflow:visible;padding:38px 46px 46px;width:min(calc(100vw - 48px),1080px)}
+.resume-header{align-items:stretch;background:#fff;border:1px solid #dbe2ea;border-radius:4px;border-top:4px solid #111827;display:grid;gap:26px;grid-template-columns:124px minmax(0,1fr);margin-bottom:24px;padding:22px 24px 24px;text-align:left}
+.photo-frame{align-items:center;background:#fff;border:1px solid #cbd5e1;border-radius:6px;display:flex;justify-content:center;overflow:hidden;padding:3px}
+.profile-photo{aspect-ratio:3/4;background:#dbeafe;border-radius:4px;display:block;height:156px;object-fit:cover;object-position:50% 34%;width:117px}
+.profile-main{display:flex;flex-direction:column;justify-content:center;min-width:0}
+.eyebrow{color:#475467;font-size:12px;font-weight:800;letter-spacing:.4px;line-height:1.2;margin:0 0 7px;text-transform:uppercase}
+.name-row{align-items:end;display:flex;flex-wrap:wrap;gap:12px 16px;margin-bottom:18px}
+.resume-header h1{font-size:40px;font-weight:800;letter-spacing:0;line-height:1.05;margin:0}
+.identity-line{color:#667085;font-size:16px;font-weight:700;margin:0 0 4px}
+.contact-line{align-items:flex-start;display:flex;flex-wrap:wrap;font-size:14.5px;gap:9px;justify-content:flex-start;letter-spacing:0;margin:0}
+.contact-line a{align-items:center;background:#f8fafc;border:1px solid #dbe2ea;border-radius:4px;color:#1f2937;display:inline-flex;gap:8px;min-height:32px;padding:5px 10px;text-decoration:none;width:auto}
+.contact-line a:hover{border-color:rgba(37,99,235,.35);color:#2563eb}
+.section{margin-top:22px}.section:first-of-type{margin-top:0}
+.section h2{align-items:center;color:#101828;display:flex;font-size:19px;font-weight:800;gap:9px;line-height:1.05;margin:0 0 12px}
+.section h2::after{background:linear-gradient(90deg,#2563eb 0,rgba(37,99,235,.12) 100%);content:"";flex:1;height:2px;margin-left:4px}
+.section-icon{background:#eaf1ff;border-radius:8px;color:#2563eb;height:28px;padding:6px;width:28px}
+.education-grid{background:#f7f9fc;border:1px solid #dbe2ea;border-radius:10px;display:grid;font-size:16px;grid-template-columns:1.25fr 1.1fr 1fr;line-height:1.45;margin-bottom:10px;padding:10px 14px;row-gap:4px}
+.education-grid div:nth-child(3n){color:#667085;font-weight:700;text-align:right}
+.info-line{font-size:16px;line-height:1.15;margin:5px 0 0}
+.info-line strong{font-size:16px;font-weight:800}
+.publications{background:#f7f9fc;border:1px solid #dbe2ea;border-radius:10px;font-size:15.5px;line-height:1.35;padding:10px 14px}
+.publications p{margin:0;padding:4px 0}.publications p:first-child{padding-top:0}.publications p:last-child{padding-bottom:0}
+.experience{border-left:3px solid #eaf1ff;margin-top:18px;padding-left:16px;position:relative}
+.experience::before{background:#2563eb;border:3px solid #fff;border-radius:999px;box-shadow:0 0 0 1px rgba(37,99,235,.25);content:"";height:9px;left:-6px;position:absolute;top:4px;width:9px}
+.experience:first-of-type{margin-top:0}
+.entry-head{align-items:start;display:grid;font-size:16px;grid-template-columns:1.25fr 1.1fr 1fr;line-height:1.2;margin-bottom:10px}
+.entry-head strong{font-weight:800}.entry-head span{color:#667085;font-weight:700;text-align:center}
+.company-title{align-items:center;display:inline-flex;gap:8px}
+.project-title{align-items:center;display:inline-flex;gap:8px}
+.project-title .project-logo{border-radius:4px;flex:0 0 auto;height:18px;object-fit:cover;width:18px}
+.experience h3{color:#1f2937;font-size:16.5px;font-weight:800;line-height:1.15;margin:0 0 6px}
+.project-link{color:inherit;text-decoration:none}.project-link:hover{text-decoration:underline}
+.project-stat{background:#fff7ed;border:1px solid #fed7aa;border-radius:999px;color:#9a3412;display:inline-block;font-size:.82em;font-weight:700;margin-left:8px;padding:2px 8px}
+.summary{font-size:15.5px;line-height:1.32;margin:0 0 4px;text-align:justify}
+.experience ul{font-size:15.5px;line-height:1.32;list-style-position:outside;margin:0;padding-left:21px}
+.experience li{margin:5px 0 0;padding-left:3px}
+.experience li::marker{color:#2563eb;font-size:.9em}
+.experience li strong{font-weight:800}
+.skills-section{margin-top:20px}
+.skills-list{background:#f7f9fc;border:1px solid #dbe2ea;border-radius:10px;columns:1;font-size:15.5px;line-height:1.35;list-style:none;margin:0;padding:12px 14px}
+.skills-list li{break-inside:avoid;margin-top:4px;padding-left:13px;position:relative;text-align:left}
+.skills-list li::before{background:#d97757;border-radius:999px;content:"";height:5px;left:0;position:absolute;top:8px;width:5px}
+@media print{body{background:#fff}.page{box-shadow:none;border:0;margin:0;width:100%}}`;
+}
+
+function iconsSVG() {
+  return `<svg aria-hidden="true" style="display:none" xmlns="http://www.w3.org/2000/svg">
+    <symbol id="icon-print" viewBox="0 0 24 24"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></symbol>
+    <symbol id="icon-phone" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.8 19.8 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.11 4.18 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.72c.13.96.35 1.89.66 2.78a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.3-1.22a2 2 0 0 1 2.11-.45c.89.31 1.82.53 2.78.66A2 2 0 0 1 22 16.92z"/></symbol>
+    <symbol id="icon-mail" viewBox="0 0 24 24"><path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/><path d="m22 6-10 7L2 6"/></symbol>
+    <symbol id="icon-github" viewBox="0 0 24 24"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.9a3.4 3.4 0 0 0-.94-2.64c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.4 3.4 0 0 0 9 18.11V22"/></symbol>
+    <symbol id="icon-school" viewBox="0 0 24 24"><path d="M22 10 12 5 2 10l10 5 10-5z"/><path d="M6 12.5V17c0 1.7 2.7 3 6 3s6-1.3 6-3v-4.5M22 10v6"/></symbol>
+    <symbol id="icon-briefcase" viewBox="0 0 24 24"><path d="M10 6V5a2 2 0 0 1 2-2h0a2 2 0 0 1 2 2v1"/><path d="M3 8h18v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM3 13h18M9 13v2h6v-2"/></symbol>
+    <symbol id="icon-code" viewBox="0 0 24 24"><path d="m16 18 6-6-6-6M8 6l-6 6 6 6M14 4l-4 16"/></symbol>
+    <symbol id="icon-tool" viewBox="0 0 24 24"><path d="M14.7 6.3a4 4 0 0 0 5 5L11 20l-5-5 8.7-8.7z"/><path d="m7 17-3 3"/></symbol>
+    <symbol id="icon-file-text" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h6M8 9h1"/></symbol>
+  </svg>`;
+}
+
+// ============================================================
+// Preview Generation
+// ============================================================
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function escAttr(s) { return esc(s).replace(/'/g,'&#39;'); }
+function rich(value) { return normalizeRichContent(value); }
+
+function normalizeData() {
+  data.infoLines = (data.infoLines || []).map((info) => ({
+    ...info,
+    value: normalizeRichContent(info.value)
+  }));
+  data.publications = (data.publications || []).map((item) => ({
+    ...item,
+    title: normalizeRichContent(item.title)
+  }));
+  data.internships = (data.internships || []).map((item) => ({
+    ...item,
+    summary: normalizeRichContent(item.summary),
+    highlights: (item.highlights || []).map((highlight) => normalizeRichContent(highlight))
+  }));
+  data.projects = (data.projects || []).map((proj) => ({
+    ...proj,
+    summary: normalizeRichContent(proj.summary),
+    highlights: (proj.highlights || []).map((highlight) => normalizeRichContent(highlight))
+  }));
+  data.skills = (data.skills || []).map((skill) => normalizeRichContent(skill));
+}
+
+function generateResumeBodyHTML() {
+  const h = data.header;
+  let html = `${iconsSVG()}
+  <main class="page">
+    <header class="resume-header">
+      <div class="photo-frame">
+        <img class="profile-photo" src="${escAttr(h.photo)}" alt="证件照" />
+      </div>
+      <div class="profile-main">
+        <p class="eyebrow">${esc(h.eyebrow)}</p>
+        <div class="name-row">
+          <h1>${esc(h.name)}</h1>
+          <p class="identity-line">${esc(h.title)}</p>
+        </div>
+        <div class="contact-line">
+          <a href="tel:${escAttr(h.phone)}"><svg class="icon"><use href="#icon-phone"></use></svg>${esc(h.phone)}</a>
+          <a href="mailto:${escAttr(h.email)}"><svg class="icon"><use href="#icon-mail"></use></svg>${esc(h.email)}</a>
+          <a href="https://${escAttr(h.github)}"><svg class="icon"><use href="#icon-github"></use></svg>${esc(h.github)}</a>
+        </div>
+      </div>
+    </header>`;
+
+  // Education
+  html += `<section class="section">
+    <h2><svg class="section-icon"><use href="#icon-school"></use></svg>教育背景</h2>
+    <div class="education-grid">`;
+  data.education.forEach(e => {
+    html += `<div>${esc(e.school)}</div><div>${esc(e.major)}</div><div>${esc(e.period)}</div>`;
+  });
+  html += `</div>`;
+  data.infoLines.forEach(info => {
+    html += `<p class="info-line"><strong>${esc(info.label)}：</strong>${rich(info.value)}</p>`;
+  });
+  html += `</section>`;
+
+  // Publications
+  if (data.publications.length > 0) {
+    html += `<section class="section">
+      <h2><svg class="section-icon"><use href="#icon-file-text"></use></svg>论文发表</h2>
+      <div class="publications">`;
+    data.publications.forEach(p => {
+      html += `<p>${rich(p.title)} (${esc(p.year)})</p>`;
+    });
+    html += `</div></section>`;
+  }
+
+  // Projects
+  if (data.internships.length > 0) {
+    html += `<section class="section internships-section">
+      <h2><svg class="section-icon"><use href="#icon-briefcase"></use></svg>实习经历</h2>`;
+    data.internships.forEach((item) => {
+      html += `<article class="experience">
+        <div class="entry-head">
+          <strong class="company-title">${esc(item.company)}</strong>
+          <strong>${esc(item.role)}</strong>
+          <span>${esc(item.period)}</span>
+        </div>`;
+      if (item.title) {
+        html += `<h3>${esc(item.title)}</h3>`;
+      }
+      if (item.summary) {
+        html += `<p class="summary">${rich(item.summary)}</p>`;
+      }
+      if (item.highlights && item.highlights.length > 0) {
+        html += `<ul>`;
+        item.highlights.forEach(hl => {
+          html += `<li>${rich(hl)}</li>`;
+        });
+        html += `</ul>`;
+      }
+      html += `</article>`;
+    });
+    html += `</section>`;
+  }
+
+  if (data.projects.length > 0) {
+    html += `<section class="section projects-section">
+      <h2><svg class="section-icon"><use href="#icon-code"></use></svg>项目经历</h2>`;
+    data.projects.forEach((proj, idx) => {
+      html += `<article class="experience">
+        <div class="entry-head">
+          <strong class="project-title">${projectLogoHTML(proj)}${esc(proj.name)}</strong>
+          <strong>${esc(proj.role)}</strong>
+          <span>${esc(proj.period)}</span>
+        </div>`;
+      if (proj.link) {
+        html += `<h3><a class="project-link" href="https://${escAttr(proj.link)}">${esc(proj.link)}</a></h3>`;
+      }
+      if (proj.summary) {
+        const badge = proj.badge ? `<span class="project-stat">${esc(proj.badge)}</span>` : '';
+        html += `<p class="summary">${rich(proj.summary)}${badge}</p>`;
+      }
+      if (proj.highlights && proj.highlights.length > 0) {
+        html += `<ul>`;
+        proj.highlights.forEach(hl => {
+          html += `<li>${rich(hl)}</li>`;
+        });
+        html += `</ul>`;
+      }
+      html += `</article>`;
+    });
+    html += `</section>`;
+  }
+
+  // Skills
+  if (data.skills.length > 0) {
+    html += `<section class="section skills-section">
+      <h2><svg class="section-icon"><use href="#icon-tool"></use></svg>专业技能</h2>
+      <ul class="skills-list">`;
+    data.skills.forEach(s => {
+      html += `<li>${rich(s)}</li>`;
+    });
+    html += `</ul></section>`;
+  }
+
+  html += `</main>`;
+  return html;
+}
+
+function generateHTML() {
+  const h = data.header;
+  return `<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${esc(h.name)} - ${esc(h.title.split('·')[0].trim())}</title>
+<base href="${escAttr(window.location.href)}">
+<style>
+  /* Inline styles.css for iframe preview */
+${inlineCSS()}
+  .toolbar { display:none !important; }
+  @media print {
+    .toolbar { display:none !important; }
+    body { background:#fff !important; }
+    .page { box-shadow:none !important; border:0 !important; margin:0 auto !important; width:100% !important; }
+  }
+</style>
+</head>
+<body>
+${generateResumeBodyHTML()}
+</body>
+</html>`;
+}
+
+function refreshPreview() { renderPreviewNow(); }
+
+// ============================================================
+// Save to Server (writes index.html)
+// ============================================================
+async function saveToServer() {
+  const btn = document.querySelector('.btn-primary');
+  const orig = btn.textContent;
+  btn.textContent = '⏳ 保存中...';
+  btn.disabled = true;
+
+  try {
+    const html = generateFullHTML();
+    const endpoint = getSaveEndpoint();
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ html })
+    });
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status} ${res.statusText}`);
+    }
+    const data = await res.json();
+    if (data.ok) {
+      clearDraftStorage();
+      showToast('✅ 已保存到 index.html（可运行 npm run export:pdf 导出）');
+    } else {
+      showToast('❌ 保存失败：' + (data.error || '未知错误'));
+    }
+  } catch (e) {
+    const hint = location.protocol === 'file:'
+      ? '请通过 start.bat 打开 http://localhost:4173/editor.html 后保存'
+      : '请确认 start.bat 启动的 4173 服务仍在运行';
+    showToast('❌ 保存失败：' + e.message + '。' + hint);
+  }
+
+  btn.textContent = orig;
+  btn.disabled = false;
+}
+
+function getSaveEndpoint() {
+  return '/save';
+}
+
+function generateFullHTML() {
+  const h = data.header;
+  return `<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${esc(h.name)} - ${esc(h.title.split('·')[0].trim())}</title>
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="toolbar" aria-label="简历操作">
+    <button type="button" class="print-button" onclick="window.print()">
+      <svg class="icon"><use href="#icon-print"></use></svg>
+      打印 / 导出 PDF
+    </button>
+    <a class="source-link" href="https://${escAttr(h.github)}">
+      <svg class="icon"><use href="#icon-github"></use></svg>
+      ${esc(h.github)}
+    </a>
+  </div>
+${generateResumeBodyHTML()}
+</body>
+</html>`;
+}
+
+function getExportEndpoint() {
+  return '/export-pdf';
+}
+
+// ============================================================
+// Export PDF (server-side via Node.js + Chromium)
+// ============================================================
+async function exportToPDF(event) {
+  const btn = event?.currentTarget || document.querySelector('[onclick^="exportToPDF"]');
+  const orig = btn.textContent;
+  btn.textContent = '⏳ 生成PDF中...';
+  btn.disabled = true;
+
+  try {
+    const html = generateFullHTML();
+    const res = await fetch(getExportEndpoint(), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ html })
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: res.statusText }));
+      showToast('❌ 导出失败：' + (err.error || '未知错误'));
+      btn.textContent = orig;
+      btn.disabled = false;
+      return;
+    }
+
+    // Get the PDF as a blob
+    const blob = await res.blob();
+    
+    // Ask user for filename
+    const defaultName = `${data.header.name || 'resume'}-${(data.header.title || 'resume').split('·')[0].trim() || 'resume'}.pdf`;
+    const filename = prompt('保存为（可修改文件名避免覆盖）：', defaultName) || defaultName;
+
+    // Trigger download
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    showToast(`✅ PDF 已下载：${filename}（浏览器下载文件夹可查看）`);
+  } catch (e) {
+    showToast('❌ 导出失败：' + e.message);
+  }
+
+  btn.textContent = orig;
+  btn.disabled = false;
+}
+
+// ============================================================
+// Toast
+// ============================================================
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+// ============================================================
+// Init
+// ============================================================
+async function initEditor() {
+  const loadedFromIndex = await loadFromSavedIndex();
+  if (loadedFromIndex) {
+    clearDraftStorage();
+    showToast('✅ 已加载 index.html 中最近保存的内容');
+  } else {
+    clearDraftStorage();
+    showToast('⚠️ 未能读取 index.html，已显示编辑器内置默认内容');
+  }
+
+  normalizeData();
+  initUndoHistory();
+  document.addEventListener('keydown', handleGlobalRichTextShortcuts);
+  document.addEventListener('selectionchange', handleDocumentSelectionChange);
+  bindCropInteractions();
+  document.addEventListener('click', (event) => {
+    if (!event.target.closest('.floating-toolbar') && !event.target.closest('.rich-editor')) {
+      hideFloatingToolbar();
+    }
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && document.getElementById('image-crop-modal')?.classList.contains('show')) {
+      cancelImageCrop();
+    }
+  });
+  window.addEventListener('scroll', hideFloatingToolbar, true);
+  window.addEventListener('resize', hideFloatingToolbar);
+  renderSidebar();
+  renderPreviewNow();
+}
+
+initEditor();
+</script>
+</body>
+</html>

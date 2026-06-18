@@ -1,0 +1,15 @@
+node_modules/
+export/*
+__pycache__/
+*.pyc
+*.log
+export-input-*.html
+codex-*.pdf
+codex-*.html
+.DS_Store
+.env
+resume.html
+resume.backup-*.html
+private-assets/
+# index.html contains personal resume data — keep it local
+index.html

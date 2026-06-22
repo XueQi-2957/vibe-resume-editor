@@ -13,3 +13,13 @@ resume.backup-*.html
 private-assets/
 # index.html contains personal resume data — keep it local
 index.html
+# resumes/*.html contains local personal resume variants
+resumes/*.html
+# Keep the resumes directory for cloning
+resumes/.gitkeep
+
+# Hermes agent working directory
+.hermes/
+
+# Temporary build/test artifacts
+tmp/

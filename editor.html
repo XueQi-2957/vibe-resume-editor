@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>简历编辑器 - VibeResume</title>
+<link rel="icon" href="data:,">
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -174,10 +175,28 @@ textarea { resize: vertical; min-height: 52px; }
 }
 .help-wrap:hover .help-popover,
 .help-wrap:focus-within .help-popover {
+  display: block;
   opacity: 1;
   pointer-events: auto;
   transform: translateY(0);
 }
+
+/* File selector */
+.file-selector { display: flex; align-items: center; gap: 6px; }
+.file-selector select {
+  padding: 5px 28px 5px 10px; border: 1px solid var(--border); border-radius: 5px;
+  font-size: 13px; background: #fff; cursor: pointer; max-width: 220px;
+  appearance: auto; color: var(--text);
+}
+.file-selector .new-btn {
+  background: none; border: 1px dashed var(--border); border-radius: 5px;
+  cursor: pointer; font-size: 16px; line-height: 1; padding: 3px 8px; color: var(--accent);
+}
+.file-selector .new-btn:hover { background: var(--accent-light); border-color: var(--accent); }
+.file-selector .rename-btn { font-size: 12px; padding: 4px 7px; }
+.file-selector .delete-btn { color: var(--danger); font-size: 12px; padding: 4px 7px; }
+.file-selector .delete-btn:hover { background: #fef2f2; border-color: var(--danger); }
+.file-status { font-size: 11px; color: var(--muted); white-space: nowrap; }
 .help-popover strong { display: block; margin-bottom: 4px; }
 .help-popover p { margin: 4px 0 0; }
 
@@ -437,7 +456,16 @@ textarea { resize: vertical; min-height: 52px; }
       <small>VibeResume</small>
     </h1>
     <div class="toolbar-actions">
-      <div class="help-wrap">
+          <div class="file-selector">
+            <select id="file-select" onchange="switchFile(this.value)">
+              <option value="">加载简历...</option>
+            </select>
+            <button class="new-btn" type="button" onclick="promptNewResume()" title="新建简历">＋</button>
+            <button class="new-btn rename-btn" type="button" onclick="promptRenameResume()" title="重命名当前简历">重命名</button>
+            <button class="new-btn delete-btn" type="button" onclick="deleteCurrentResume()" title="删除当前简历">删除</button>
+            <span class="file-status" id="file-status"></span>
+          </div>
+          <div class="help-wrap">
         <button class="help-button" type="button" aria-label="使用说明">?</button>
         <div class="help-popover" role="tooltip">
           <strong>使用说明</strong>
@@ -445,8 +473,8 @@ textarea { resize: vertical; min-height: 52px; }
           <p>快捷键：`Ctrl+B` 加粗，`Ctrl+I` 斜体，`Ctrl+S` 保存。</p>
         </div>
       </div>
-      <button class="btn btn-primary" onclick="saveToServer()">💾 保存到 index.html</button>
-      <button class="btn btn-danger" onclick="resetDefaults()">↺ 重新读取 index.html</button>
+      <button class="btn btn-primary" id="save-resume-button" onclick="saveToServer()">💾 保存当前简历</button>
+      <button class="btn btn-danger" onclick="resetDefaults()">↺ 重新读取当前简历</button>
       <button class="btn" onclick="exportToPDF(event)">📄 导出 PDF</button>
     </div>
   </div>
@@ -508,91 +536,157 @@ textarea { resize: vertical; min-height: 52px; }
 // ============================================================
 // Data Model
 // ============================================================
-const data = {
+const EMPTY_RESUME_DATA = {
   header: {
-    name: 'Alex Chen',
-    title: 'AI Agent Engineer · Template Demo',
-    eyebrow: 'AI Agent Engineering / Tool Calling / Developer Tools',
-    phone: '13800000000',
-    email: 'alex.chen@example.com',
-    github: 'github.com/example',
+    name: '',
+    title: '',
+    eyebrow: '',
+    techLine: '',
+    phone: '',
+    email: '',
+    github: '',
     photo: './assets/avatar-placeholder.svg'
   },
-  education: [
-    { school: '星河大学（本科）', major: '计算机科学与技术', period: '2021.09 - 2025.06' },
-    { school: '云杉实验室（交换）', major: '人机交互与软件工程', period: '2024.02 - 2024.06' }
-  ],
-  infoLines: [
-    { label: 'GPA', value: '3.8/4.0　<strong>排名：</strong>Top 10%' },
-    { label: '荣誉/奖项', value: '校级一等奖学金、优秀学生干部、开源贡献奖、创新实践奖' },
-    { label: '竞赛获奖', value: '全国大学生软件设计挑战赛一等奖、Web 创意开发赛金奖、黑客松最佳工程实现奖' },
-    { label: '学生工作', value: '开发者社群负责人、校园开源小组组织者、新生项目导师' }
-  ],
+  education: [],
+  infoLines: [],
   publications: [],
-  internships: [
-    {
-      company: '哔哩哔哩技术有限公司（仅为示例演示）',
-      role: 'AI Agent Engineering Intern',
-      period: '2024.06 - 2024.09',
-      title: '创作者运营 Agent 工作台 | 核心开发',
-      summary: '项目背景：面向创作者服务与内容运营场景，建设可配置的 Agent 工作台，支持知识检索、工单摘要、标签建议和风险提示等内部效率工具。',
-      highlights: [
-        '<strong>工具调用编排</strong>：设计 tool schema、参数校验、超时重试与错误归因机制，统一知识库、工单系统、内容标签等工具的调用协议。',
-        '<strong>知识检索链路</strong>：接入向量检索与关键词召回，补充 metadata filter、来源片段与引用信息，降低 Agent 回答不可追溯的问题。',
-        '<strong>评测与观测</strong>：沉淀 golden cases，记录 prompt、tool call、latency、命中来源和人工反馈，为迭代模型与提示词提供可对比样本。',
-        '<strong>安全与接管</strong>：为高风险工具增加权限范围、人工确认和 fallback 话术，避免 Agent 在内容操作场景中直接执行不可逆动作。'
-      ]
-    },
-    {
-      company: '华为技术有限公司（仅为示例演示）',
-      role: 'Agent Platform Intern',
-      period: '2023.07 - 2023.10',
-      title: '企业知识 Agent Runtime | 核心开发',
-      summary: '项目背景：面向内部知识库问答与研发助手场景，参与 Agent runtime 的工具注册、会话管理、权限控制和离线评测流水线建设。',
-      highlights: [
-        '<strong>运行时抽象</strong>：实现会话状态、工具注册表、JSON schema 校验和流式响应封装，使业务方能够以配置方式接入自定义工具。',
-        '<strong>权限与审计</strong>：按用户、空间和工具维度设计白名单与操作日志，区分只读查询、草稿生成和写入类动作的审批路径。',
-        '<strong>上下文管理</strong>：支持历史消息裁剪、摘要压缩和关键事实保留，缓解长会话下 token 成本上升与上下文漂移问题。',
-        '<strong>工程验证</strong>：构建 mock provider、fixture 数据和端到端用例，覆盖工具调用成功、参数缺失、权限拒绝和模型拒答等分支。'
-      ]
-    }
-  ],
-  projects: [
-    {
-      name: 'Agent 工作台示例',
-      role: 'Full-stack AI Tooling Demo',
-      period: 'Template Project',
-      link: 'github.com/example/agent-workbench',
-      logo: '',
-      badge: 'Template Project',
-      summary: '项目背景：面向知识管理与内部效率场景，构建一个可配置的 Agent 工作台示例，展示工具调用、权限确认、日志观测和可视化配置等能力。',
-      highlights: [
-        '<strong>工具注册</strong>：抽象 tool schema、参数校验、超时处理和错误提示，让不同业务工具能够以统一方式接入工作台。',
-        '<strong>会话管理</strong>：维护消息历史、关键事实和工具结果，支持长任务下的状态恢复、摘要压缩与上下文边界提示。',
-        '<strong>安全确认</strong>：区分只读查询、草稿生成和写入动作，为高风险操作增加二次确认、权限范围和审计记录。',
-        '<strong>工程交付</strong>：整理 mock provider、fixture 数据、端到端用例和 README，让模板项目便于替换为真实业务案例。'
-      ]
-    }
-  ],
-  skills: [
-    '熟悉 TypeScript / Python / Node.js，能够实现 Agent runtime、CLI 工具和服务端接口。',
-    '熟悉 LLM Agent 核心机制，了解 tool calling、function schema、规划执行、结果回传与错误恢复。',
-    '熟悉 RAG 基础链路，了解向量检索、关键词召回、metadata filter、引用片段和知识库更新流程。',
-    '熟悉 Agent 工程化能力，了解 MCP、Skills、上下文压缩、会话记忆、权限审批与操作审计等设计。',
-    '熟悉评测与可观测性建设，能够整理 golden cases、mock provider、日志字段和端到端测试用例。',
-    '熟悉 Git、GitHub、README 编写和开源项目结构，能够把 demo、文档、脚本和发布流程整理成闭环。'
-  ]
+  internships: [],
+  campus: [],
+  projects: [],
+  customSections: [],
+  skills: [],
+  sectionOrder: ['education', 'publications', 'internships', 'campus', 'projects', 'customSections', 'skills']
 };
 
+const DEFAULT_SECTION_ORDER = ['education', 'publications', 'internships', 'campus', 'projects', 'customSections', 'skills'];
+
+function createDefaultData() {
+  return JSON.parse(JSON.stringify(EMPTY_RESUME_DATA));
+}
+
+function replaceCurrentData(nextData) {
+  const next = createDefaultData();
+  const incoming = JSON.parse(JSON.stringify(nextData || {}));
+  next.header = { ...next.header, ...(incoming.header || {}) };
+  next.education = Array.isArray(incoming.education) ? incoming.education : [];
+  next.infoLines = Array.isArray(incoming.infoLines) ? incoming.infoLines : [];
+  next.publications = Array.isArray(incoming.publications) ? incoming.publications : [];
+  next.internships = Array.isArray(incoming.internships) ? incoming.internships : [];
+  next.campus = Array.isArray(incoming.campus) ? incoming.campus : [];
+  next.projects = Array.isArray(incoming.projects) ? incoming.projects : [];
+  next.customSections = Array.isArray(incoming.customSections) ? incoming.customSections : [];
+  next.skills = Array.isArray(incoming.skills) ? incoming.skills : [];
+  next.sectionOrder = Array.isArray(incoming.sectionOrder) ? incoming.sectionOrder : [...DEFAULT_SECTION_ORDER];
+  data = next;
+}
+
+let data = createDefaultData();
+
 // ============================================================
-// Legacy localStorage key. Editor content is loaded from index.html, not draft storage.
+// Legacy localStorage key. Editor content is loaded from resumes/*.html, not draft storage.
 // ============================================================
 const STORAGE_KEY = 'vibe-resume-editor-data';
-let savedSelection = null;
+const PREF_KEY = 'vibe-resume-last-file';
+let currentFile = '';
+let clientId = '';
+let isDirty = false;
+let lastSavedHTML = '';
+
+function genClientId() {
+  return 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
+// ── File listing ──
+
+async function fetchFileList() {
+  try {
+    const r = await fetch('/list-resumes');
+    const d = await r.json();
+    return d.ok ? d.files : [];
+  } catch (e) { return []; }
+}
+
+async function loadResumeFile(filename) {
+  if (!filename) return null;
+  try {
+    const r = await fetch('/load-resume?file=' + encodeURIComponent(filename));
+    const d = await r.json();
+    if (d.ok) return d;
+    return null;
+  } catch (e) { return null; }
+}
+
+async function saveResumeFile(filename, html) {
+  try {
+    const r = await fetch('/save-resume?file=' + encodeURIComponent(filename), {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({html, client_id: clientId})
+    });
+    return await r.json();
+  } catch (e) { return {ok: false, error: e.message}; }
+}
+
+async function createNewResume(name) {
+  try {
+    const r = await fetch('/new-resume', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({name})
+    });
+    return await r.json();
+  } catch (e) { return {ok: false, error: e.message}; }
+}
+
+async function renameResumeFile(oldName, newName) {
+  try {
+    const r = await fetch('/rename-resume', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({old_name: oldName, new_name: newName, client_id: clientId})
+    });
+    return await r.json();
+  } catch (e) { return {ok: false, error: e.message}; }
+}
+
+async function deleteResumeFile(filename) {
+  try {
+    const r = await fetch('/delete-resume?file=' + encodeURIComponent(filename), {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({client_id: clientId})
+    });
+    return await r.json();
+  } catch (e) { return {ok: false, error: e.message}; }
+}
+
+async function lockFile(filename) {
+  try {
+    await fetch('/lock-resume?file=' + encodeURIComponent(filename), {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({client_id: clientId})
+    });
+  } catch (e) {}
+}
+
+async function unlockFile(filename) {
+  try {
+    await fetch('/unlock-resume?file=' + encodeURIComponent(filename), {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({client_id: clientId})
+    });
+  } catch (e) {}
+}
+
+// ── Save to server ──
+
 let undoStack = [];
 let undoIndex = -1;
 let activeEditPath = null;
 let activeEditSnapshot = null;
+let savedSelection = null;
 
 function deepClone(value) {
   return JSON.parse(JSON.stringify(value));
@@ -622,7 +716,7 @@ function initUndoHistory() {
 
 function restoreUndoSnapshot(snapshot) {
   if (!snapshot) return;
-  Object.assign(data, deepClone(snapshot));
+  replaceCurrentData(snapshot);
   normalizeData();
   renderSidebar();
   renderPreviewNow();
@@ -641,12 +735,34 @@ async function loadFromSavedIndex() {
     const html = await res.text();
     const parsed = extractResumeDataFromHTML(html);
     if (!parsed) return false;
-    Object.assign(data, parsed);
+    replaceCurrentData(parsed);
     normalizeData();
     return true;
   } catch (e) {
     return false;
   }
+}
+
+async function loadTemplateFallback() {
+  const candidates = ['./index.template.html', './index.html'];
+  for (const candidate of candidates) {
+    try {
+      const res = await fetch(candidate, { cache: 'no-store' });
+      if (!res.ok) continue;
+      const html = await res.text();
+      const parsed = extractResumeDataFromHTML(html);
+      if (!parsed?.header) continue;
+      replaceCurrentData(parsed);
+      normalizeData();
+      renderSidebar();
+      renderPreviewNow();
+      updateFileStatus();
+      return true;
+    } catch (e) {
+      // Try next fallback file.
+    }
+  }
+  return false;
 }
 
 function extractResumeDataFromHTML(html) {
@@ -656,107 +772,190 @@ function extractResumeDataFromHTML(html) {
     infoLines: [],
     publications: [],
     internships: [],
+    campus: [],
     projects: [],
-    skills: []
+    customSections: [],
+    skills: [],
+    sectionOrder: []
   };
 
   const doc = parseHTMLDocument(html);
   if (doc) {
     const headerEl = doc.querySelector('.resume-header');
     if (headerEl) {
+      const defaultHeader = createDefaultData().header;
       const contactLinks = [...headerEl.querySelectorAll('.contact-line a')];
       const phoneLink = contactLinks.find((a) => (a.getAttribute('href') || '').startsWith('tel:'));
       const emailLink = contactLinks.find((a) => (a.getAttribute('href') || '').startsWith('mailto:'));
       const githubLink = contactLinks.find((a) => (a.getAttribute('href') || '').includes('github.com'));
       result.header = {
-        ...data.header,
+        ...defaultHeader,
         eyebrow: stripHtml(headerEl.querySelector('.eyebrow')?.innerHTML || ''),
         name: stripHtml(headerEl.querySelector('h1')?.innerHTML || ''),
         title: stripHtml(headerEl.querySelector('.identity-line')?.innerHTML || ''),
-        phone: phoneLink ? stripHtml(phoneLink.innerHTML).replace(/^.*?(\+?\d[\d\s-]*)$/, '$1').trim() : data.header.phone,
-        email: emailLink ? stripHtml(emailLink.innerHTML).trim() : data.header.email,
-        github: githubLink ? stripHtml(githubLink.innerHTML).trim().replace(/^https?:\/\//, '') : data.header.github,
-        photo: headerEl.querySelector('.profile-photo')?.getAttribute('src') || data.header.photo
+        techLine: stripHtml(headerEl.querySelector('.tech-line')?.innerHTML || ''),
+        phone: phoneLink ? stripHtml(phoneLink.innerHTML).replace(/^.*?(\+?\d[\d\s-]*)$/, '$1').trim() : defaultHeader.phone,
+        email: emailLink ? stripHtml(emailLink.innerHTML).trim() : defaultHeader.email,
+        github: githubLink ? stripHtml(githubLink.innerHTML).trim().replace(/^https?:\/\//, '') : defaultHeader.github,
+        photo: headerEl.querySelector('.profile-photo')?.getAttribute('src') || defaultHeader.photo
       };
     }
 
-    doc.querySelectorAll('.education-grid').forEach((grid) => {
-      const cells = [...grid.querySelectorAll(':scope > div')].map((cell) => stripHtml(cell.innerHTML));
-      for (let i = 0; i + 2 < cells.length; i += 3) {
-        result.education.push({
-          school: cells[i],
-          major: cells[i + 1],
-          period: cells[i + 2]
+    const addSectionOrder = (key) => {
+      if (!key || result.sectionOrder.includes(key)) return;
+      result.sectionOrder.push(key);
+    };
+
+    const parseEducationSection = (sectionEl) => {
+      sectionEl.querySelectorAll('.education-grid').forEach((grid) => {
+        const cells = [...grid.querySelectorAll(':scope > div')].map((cell) => stripHtml(cell.innerHTML));
+        for (let i = 0; i + 2 < cells.length; i += 3) {
+          result.education.push({
+            school: cells[i],
+            major: cells[i + 1],
+            period: cells[i + 2]
+          });
+        }
+      });
+      sectionEl.querySelectorAll('p.info-line').forEach((info) => {
+        const strong = info.querySelector('strong');
+        if (!strong) return;
+        const label = stripHtml(strong.innerHTML).replace(/：$/, '');
+        const clone = info.cloneNode(true);
+        clone.querySelector('strong')?.remove();
+        result.infoLines.push({
+          label,
+          value: normalizeRichContent(clone.innerHTML.replace(/^\s*：/, '').trim())
         });
+      });
+    };
+
+    const parsePublicationsSection = (sectionEl) => {
+      sectionEl.querySelectorAll('.publications p').forEach((pub) => {
+        const text = stripHtml(pub.innerHTML);
+        const match = text.match(/^([\s\S]*?)\s+\(([^()]*)\)$/);
+        result.publications.push({
+          title: match ? match[1] : pub.innerHTML,
+          year: match ? match[2] : ''
+        });
+      });
+    };
+
+    const parseInternshipsSection = (sectionEl) => {
+      sectionEl.querySelectorAll('article.experience').forEach((article) => {
+        const companyTitle = article.querySelector('.company-title, .project-title');
+        const head = article.querySelector('.entry-head');
+        if (!companyTitle || !head) return;
+        const headStrong = [...head.querySelectorAll(':scope > strong')];
+        const summary = article.querySelector('.summary');
+        result.internships.push({
+          company: stripHtml(companyTitle.innerHTML),
+          role: stripHtml(headStrong[1]?.innerHTML || ''),
+          period: stripHtml(head.querySelector(':scope > span')?.innerHTML || ''),
+          title: stripHtml(article.querySelector('h3')?.innerHTML || ''),
+          summary: summary ? summary.innerHTML : '',
+          highlights: [...article.querySelectorAll('li')].map((li) => li.innerHTML)
+        });
+      });
+    };
+
+    const parseCampusSection = (sectionEl) => {
+      sectionEl.querySelectorAll('article.experience').forEach((article) => {
+        const title = article.querySelector('.project-title');
+        const head = article.querySelector('.entry-head');
+        if (!title || !head) return;
+        const headStrong = [...head.querySelectorAll(':scope > strong')];
+        result.campus.push({
+          name: stripHtml(title.innerHTML),
+          org: stripHtml(headStrong[1]?.innerHTML || ''),
+          period: stripHtml(head.querySelector(':scope > span')?.innerHTML || ''),
+          highlights: [...article.querySelectorAll('li')].map((li) => li.innerHTML)
+        });
+      });
+    };
+
+    const parseProjectsSection = (sectionEl) => {
+      sectionEl.querySelectorAll('article.experience').forEach((article) => {
+        const projectTitle = article.querySelector('.project-title');
+        const head = article.querySelector('.entry-head');
+        if (!projectTitle || !head) return;
+        const headStrong = [...head.querySelectorAll(':scope > strong')];
+        const summary = article.querySelector('.summary');
+        const link = article.querySelector('.project-link');
+        const badge = article.querySelector('.project-stat');
+        let summaryHtml = '';
+        if (summary) {
+          const summaryClone = summary.cloneNode(true);
+          summaryClone.querySelector('.project-stat')?.remove();
+          summaryHtml = summaryClone.innerHTML;
+        }
+        result.projects.push({
+          name: stripHtml(projectTitle.innerHTML),
+          role: stripHtml(headStrong[1]?.innerHTML || ''),
+          period: stripHtml(head.querySelector(':scope > span')?.innerHTML || ''),
+          link: link ? stripHtml(link.getAttribute('href') || '').replace(/^https?:\/\//, '') : '',
+          logo: projectTitle.querySelector('.project-logo')?.getAttribute('src') || '',
+          badge: badge ? stripHtml(badge.innerHTML) : '',
+          summary: summaryHtml,
+          highlights: [...article.querySelectorAll('li')].map((li) => li.innerHTML)
+        });
+      });
+    };
+
+    const parseSkillsSection = (sectionEl) => {
+      sectionEl.querySelectorAll('.skills-list li').forEach((skill) => {
+        result.skills.push(skill.innerHTML);
+      });
+    };
+
+    const parseCustomSection = (sectionEl) => {
+      const title = stripHtml(sectionEl.querySelector('h2')?.innerHTML || '');
+      let items = [...sectionEl.querySelectorAll('.custom-item')].map((item) => item.innerHTML).filter(Boolean);
+      if (items.length === 0) {
+        items = [...sectionEl.querySelectorAll('.publications p, p')]
+          .filter((item) => !item.classList.contains('info-line'))
+          .map((item) => item.innerHTML)
+          .filter(Boolean);
+      }
+      if (!title && items.length === 0) return;
+      result.customSections.push({
+        title: title || '自定义模块',
+        items
+      });
+    };
+
+    const mainEl = doc.querySelector('main.page') || doc.body;
+    const sections = [...mainEl.querySelectorAll(':scope > section.section')];
+    sections.forEach((sectionEl) => {
+      const title = stripHtml(sectionEl.querySelector(':scope > h2')?.innerHTML || '').replace(/\s+/g, '');
+      const classes = sectionEl.classList;
+      if (classes.contains('projects-section') || title.includes('项目经历')) {
+        parseProjectsSection(sectionEl);
+        addSectionOrder('projects');
+      } else if (classes.contains('internships-section') || title.includes('实习经历')) {
+        parseInternshipsSection(sectionEl);
+        addSectionOrder('internships');
+      } else if (classes.contains('skills-section') || title.includes('专业技能')) {
+        parseSkillsSection(sectionEl);
+        addSectionOrder('skills');
+      } else if (title.includes('教育背景')) {
+        parseEducationSection(sectionEl);
+        addSectionOrder('education');
+      } else if (title.includes('论文发表')) {
+        parsePublicationsSection(sectionEl);
+        addSectionOrder('publications');
+      } else if (title.includes('校园经历')) {
+        parseCampusSection(sectionEl);
+        addSectionOrder('campus');
+      } else {
+        parseCustomSection(sectionEl);
+        addSectionOrder('customSections');
       }
     });
 
-    doc.querySelectorAll('p.info-line').forEach((info) => {
-      const strong = info.querySelector('strong');
-      if (!strong) return;
-      const label = stripHtml(strong.innerHTML).replace(/：$/, '');
-      const clone = info.cloneNode(true);
-      clone.querySelector('strong')?.remove();
-      result.infoLines.push({
-        label,
-        value: stripHtml(clone.innerHTML).replace(/^：/, '').trim()
-      });
-    });
-
-    doc.querySelectorAll('.publications p').forEach((pub) => {
-      const text = stripHtml(pub.innerHTML);
-      const match = text.match(/^([\s\S]*?)\s+\(([^()]*)\)$/);
-      result.publications.push({
-        title: match ? match[1] : text,
-        year: match ? match[2] : ''
-      });
-    });
-
-    doc.querySelectorAll('.internships-section article.experience').forEach((article) => {
-      const companyTitle = article.querySelector('.company-title, .project-title');
-      const head = article.querySelector('.entry-head');
-      if (!companyTitle || !head) return;
-      const headStrong = [...head.querySelectorAll(':scope > strong')];
-      const summary = article.querySelector('.summary');
-      result.internships.push({
-        company: stripHtml(companyTitle.innerHTML),
-        role: stripHtml(headStrong[1]?.innerHTML || ''),
-        period: stripHtml(head.querySelector(':scope > span')?.innerHTML || ''),
-        title: stripHtml(article.querySelector('h3')?.innerHTML || ''),
-        summary: summary ? summary.innerHTML : '',
-        highlights: [...article.querySelectorAll('li')].map((li) => li.innerHTML)
-      });
-    });
-
-    doc.querySelectorAll('.projects-section article.experience').forEach((article) => {
-      const projectTitle = article.querySelector('.project-title');
-      const head = article.querySelector('.entry-head');
-      if (!projectTitle || !head) return;
-      const headStrong = [...head.querySelectorAll(':scope > strong')];
-      const summary = article.querySelector('.summary');
-      const link = article.querySelector('.project-link');
-      const badge = article.querySelector('.project-stat');
-      let summaryHtml = '';
-      if (summary) {
-        const summaryClone = summary.cloneNode(true);
-        summaryClone.querySelector('.project-stat')?.remove();
-        summaryHtml = summaryClone.innerHTML;
-      }
-      result.projects.push({
-        name: stripHtml(projectTitle.innerHTML),
-        role: stripHtml(headStrong[1]?.innerHTML || ''),
-        period: stripHtml(head.querySelector(':scope > span')?.innerHTML || ''),
-        link: link ? stripHtml(link.getAttribute('href') || '').replace(/^https?:\/\//, '') : '',
-        logo: projectTitle.querySelector('.project-logo')?.getAttribute('src') || '',
-        badge: badge ? stripHtml(badge.innerHTML) : '',
-        summary: summaryHtml,
-        highlights: [...article.querySelectorAll('li')].map((li) => li.innerHTML)
-      });
-    });
-
-    doc.querySelectorAll('.skills-list li').forEach((skill) => {
-      result.skills.push(skill.innerHTML);
-    });
+    if (result.sectionOrder.length === 0) {
+      result.sectionOrder = [...DEFAULT_SECTION_ORDER];
+    }
 
     return result.header ? result : null;
   }
@@ -764,7 +963,7 @@ function extractResumeDataFromHTML(html) {
   const headerMatch = html.match(/<p class="eyebrow">([\s\S]*?)<\/p>[\s\S]*?<h1>([\s\S]*?)<\/h1>[\s\S]*?<p class="identity-line">([\s\S]*?)<\/p>/);
   if (headerMatch) {
     result.header = {
-      ...data.header,
+      ...createDefaultData().header,
       eyebrow: stripHtml(headerMatch[1]),
       name: stripHtml(headerMatch[2]),
       title: stripHtml(headerMatch[3])
@@ -794,7 +993,7 @@ function extractResumeDataFromHTML(html) {
   while ((match = infoRegex.exec(html))) {
     result.infoLines.push({
       label: stripHtml(match[1]),
-      value: stripHtml(match[2])
+      value: normalizeRichContent(match[2])
     });
   }
 
@@ -890,9 +1089,13 @@ function stripHtml(html) {
 }
 
 function resetDefaults() {
-  if (!confirm('确定重新读取 index.html？未保存到 index.html 的编辑内容将丢失。')) return;
+  if (!currentFile) {
+    showToast('❌ 当前没有可重载的简历文件');
+    return;
+  }
+  if (!confirm(`确定重新读取 "${currentFile}" 吗？未保存修改将丢失。`)) return;
   clearDraftStorage();
-  location.reload();
+  doLoadFile(currentFile);
 }
 
 function clearDraftStorage() {
@@ -908,7 +1111,9 @@ const expanded = {
   infoLines: false,
   publications: false,
   internships: false,
+  campus: false,
   projects: false,
+  customSections: false,
   skills: false
 };
 
@@ -917,14 +1122,31 @@ const expanded = {
 // ============================================================
 function renderSidebar() {
   const root = document.getElementById('sidebar-root');
+  const sectionRenderers = {
+    education: renderEducationSection,
+    publications: renderPublicationsSection,
+    internships: renderInternshipsSection,
+    campus: renderCampusSection,
+    projects: renderProjectsSection,
+    customSections: renderCustomSections,
+    skills: renderSkillsSection
+  };
+  const rendered = new Set();
+  const orderedSections = getNormalizedSectionOrder()
+    .filter((key) => sectionRenderers[key])
+    .map((key) => {
+      rendered.add(key);
+      return sectionRenderers[key]();
+    })
+    .join('');
+  const missingSections = DEFAULT_SECTION_ORDER
+    .filter((key) => !rendered.has(key) && sectionRenderers[key])
+    .map((key) => sectionRenderers[key]())
+    .join('');
   root.innerHTML = `
     ${renderHeaderSection()}
-    ${renderEducationSection()}
-    ${renderInfoSection()}
-    ${renderPublicationsSection()}
-    ${renderInternshipsSection()}
-    ${renderProjectsSection()}
-    ${renderSkillsSection()}
+    ${orderedSections}
+    ${missingSections}
   `;
   bindRichEditors();
 }
@@ -954,9 +1176,16 @@ function getProjectLogoSrc(projectOrName) {
   return '';
 }
 
+function normalizeAssetPathForHTML(src) {
+  const value = String(src || '').trim();
+  if (!value) return value;
+  if (/^(?:data:|blob:|https?:|file:)/i.test(value)) return value;
+  return value.replace(/^(?:\.\.\/|\.\/)?(assets|private-assets)\//, '/$1/');
+}
+
 function projectLogoHTML(projectOrName) {
   const name = typeof projectOrName === 'object' ? projectOrName.name : projectOrName;
-  const src = getProjectLogoSrc(projectOrName);
+  const src = normalizeAssetPathForHTML(getProjectLogoSrc(projectOrName));
   if (!src) return '';
   return `<img class="project-logo" src="${escAttr(src)}" alt="${escAttr(name)} logo">`;
 }
@@ -1613,6 +1842,10 @@ function renderHeaderSection() {
         <input type="text" value="${esc(h.title)}" oninput="data.header.title=this.value; renderPreviewNow()">
       </div>
       <div class="field-group">
+        <div class="field-label">标题技术栈</div>
+        <input type="text" value="${esc(h.techLine || '')}" placeholder="如：Python · LangChain · RAG" oninput="data.header.techLine=this.value; renderPreviewNow()">
+      </div>
+      <div class="field-group">
         <div class="field-label">电话</div>
         <input type="text" value="${esc(h.phone)}" oninput="data.header.phone=this.value; renderPreviewNow()">
       </div>
@@ -1652,11 +1885,27 @@ function renderEducationSection() {
       </div>
     </div>`;
   });
+  let infoItems = '';
+  data.infoLines.forEach((info, i) => {
+    infoItems += `<div class="list-item">
+      <div class="item-header">
+        <span class="item-title">📌 ${esc(info.label)}</span>
+        <span class="item-remove" onclick="removeInfoLine(${i})">✕</span>
+      </div>
+      <div class="item-fields">
+        <input type="text" value="${esc(info.label)}" placeholder="标签" oninput="data.infoLines[${i}].label=this.value; renderPreviewNow()">
+        ${renderRichTextField(info.value, `infoLines.${i}.value`, { rows: 2 })}
+      </div>
+    </div>`;
+  });
   return `<div class="section-card">
     ${sectionHead('education', '🎓 教育背景', '')}
     ${sectionBody('education', `
       <div class="list-items">${items}</div>
       <div class="add-btn" onclick="addEducation()">＋ 添加教育经历</div>
+      <div class="field-label" style="margin-top:12px;">荣誉/竞赛/科研</div>
+      <div class="list-items">${infoItems}</div>
+      <div class="add-btn" onclick="addInfoLine()">＋ 添加荣誉/竞赛/科研</div>
     `)}
   </div>`;
 }
@@ -1756,6 +2005,47 @@ function renderInternshipsSection() {
   </div>`;
 }
 
+// --- Campus ---
+function renderCampusSection() {
+  let items = '';
+  data.campus.forEach((item, i) => {
+    let highlightsHtml = '';
+    item.highlights.forEach((h, j) => {
+      highlightsHtml += `<div class="list-item" style="background:#fff;padding:6px 8px;">
+        <div style="display:flex;gap:4px;align-items:stretch;">
+          <textarea rows="1" style="flex:1;font-size:12px;min-height:28px;" oninput="data.campus[${i}].highlights[${j}]=this.value; renderPreviewNow()">${esc(h)}</textarea>
+          <button class="item-remove" type="button" onclick="removeCampusHighlight(${i},${j})" aria-label="删除" title="删除">✕</button>
+        </div>
+      </div>`;
+    });
+    items += `<div class="list-item">
+      <div class="item-header">
+        <span class="item-title">${esc(item.name)}</span>
+        <div class="move-controls">
+          <button class="move-btn" type="button" onclick="moveCampus(${i},-1)" ${i===0?'disabled':''} title="上移">▲</button>
+          <button class="move-btn" type="button" onclick="moveCampus(${i},1)" ${i===data.campus.length-1?'disabled':''} title="下移">▼</button>
+          <button class="item-remove" type="button" onclick="removeCampus(${i})" aria-label="删除" title="删除">✕</button>
+        </div>
+      </div>
+      <div class="item-fields">
+        <input type="text" value="${esc(item.name)}" placeholder="名称" oninput="data.campus[${i}].name=this.value; renderPreviewNow()">
+        <input type="text" value="${esc(item.org)}" placeholder="组织/单位" oninput="data.campus[${i}].org=this.value; renderPreviewNow()">
+        <input type="text" value="${esc(item.period)}" placeholder="时间" oninput="data.campus[${i}].period=this.value; renderPreviewNow()">
+        <div class="field-label" style="margin-top:4px;">详情</div>
+        <div class="list-items">${highlightsHtml}</div>
+        <div class="add-btn" onclick="addCampusHighlight(${i})" style="margin-top:4px;">＋ 添加描述</div>
+      </div>
+    </div>`;
+  });
+  return `<div class="section-card">
+    ${sectionHead('campus', '🎓 校园经历', '')}
+    ${sectionBody('campus', `
+      <div class="list-items">${items}</div>
+      <div class="add-btn" onclick="addCampus()">＋ 添加校园经历</div>
+    `)}
+  </div>`;
+}
+
 // --- Projects ---
 function renderProjectsSection() {
   let items = '';
@@ -1807,6 +2097,41 @@ function renderProjectsSection() {
     ${sectionBody('projects', `
       <div class="list-items">${items}</div>
       <div class="add-btn" onclick="addProject()">＋ 添加项目</div>
+    `)}
+  </div>`;
+}
+
+// --- Custom Sections ---
+function renderCustomSections() {
+  let sectionsHtml = '';
+  data.customSections.forEach((section, sectionIndex) => {
+    let itemsHtml = '';
+    section.items.forEach((item, itemIndex) => {
+      itemsHtml += `<div class="list-item" style="background:#fff;padding:6px 8px;">
+        <div style="display:flex;gap:4px;align-items:stretch;">
+          ${renderRichTextField(item, `customSections.${sectionIndex}.items.${itemIndex}`, { rows: 2, style: 'flex:1;font-size:12px;min-height:36px;' })}
+          <button class="item-remove" type="button" onclick="removeCustomSectionItem(${sectionIndex},${itemIndex})" aria-label="删除条目" title="删除">✕</button>
+        </div>
+      </div>`;
+    });
+    sectionsHtml += `<div class="list-item">
+      <div class="item-header">
+        <span class="item-title">🧩 ${esc(section.title || '自定义模块')}</span>
+        <button class="item-remove" type="button" onclick="removeCustomSection(${sectionIndex})" aria-label="删除模块" title="删除">✕</button>
+      </div>
+      <div class="item-fields">
+        <input type="text" value="${esc(section.title)}" placeholder="模块标题（如：证书）" oninput="data.customSections[${sectionIndex}].title=this.value; renderPreviewNow()">
+        <div class="field-label" style="margin-top:4px;">模块内容</div>
+        <div class="list-items">${itemsHtml}</div>
+        <div class="add-btn" onclick="addCustomSectionItem(${sectionIndex})" style="margin-top:4px;">＋ 添加条目</div>
+      </div>
+    </div>`;
+  });
+  return `<div class="section-card">
+    ${sectionHead('customSections', '🧩 自定义模块', '')}
+    ${sectionBody('customSections', `
+      <div class="list-items">${sectionsHtml}</div>
+      <div class="add-btn" onclick="addCustomSection()">＋ 添加自定义模块</div>
     `)}
   </div>`;
 }
@@ -1865,6 +2190,19 @@ function moveInternshipHighlight(i, j, delta) {
   renderSidebar();
   renderPreviewNow();
 }
+function addCampus() { data.campus.push({name:'新经历', org:'组织', period:'时间', highlights:['描述']}); normalizeData(); captureAndCommitUndo(); renderSidebar(); renderPreviewNow(); }
+function removeCampus(i) { data.campus.splice(i,1); captureAndCommitUndo(); renderSidebar(); renderPreviewNow(); }
+function addCampusHighlight(i) { data.campus[i].highlights.push('新描述'); normalizeData(); captureAndCommitUndo(); renderSidebar(); renderPreviewNow(); }
+function removeCampusHighlight(i, j) { data.campus[i].highlights.splice(j,1); captureAndCommitUndo(); renderSidebar(); renderPreviewNow(); }
+function moveCampus(index, delta) {
+  const next = index + delta;
+  if (next < 0 || next >= data.campus.length) return;
+  const [item] = data.campus.splice(index, 1);
+  data.campus.splice(next, 0, item);
+  captureAndCommitUndo();
+  renderSidebar();
+  renderPreviewNow();
+}
 function addProject() { data.projects.push({name:'新项目', role:'角色', period:'时间', link:'', logo:'', badge:'', summary:'项目简介', highlights:['亮点1']}); normalizeData(); captureAndCommitUndo(); renderSidebar(); renderPreviewNow(); }
 function removeProject(i) { data.projects.splice(i,1); captureAndCommitUndo(); renderSidebar(); renderPreviewNow(); }
 function addHighlight(pi) { data.projects[pi].highlights.push('新亮点描述'); normalizeData(); captureAndCommitUndo(); renderSidebar(); renderPreviewNow(); }
@@ -1891,6 +2229,10 @@ function moveHighlight(pi, hi, delta) {
 }
 function addSkill() { data.skills.push('新技能描述'); normalizeData(); captureAndCommitUndo(); renderSidebar(); renderPreviewNow(); }
 function removeSkill(i) { data.skills.splice(i,1); captureAndCommitUndo(); renderSidebar(); renderPreviewNow(); }
+function addCustomSection() { data.customSections.push({title:'自定义模块', items:['新内容']}); normalizeData(); captureAndCommitUndo(); renderSidebar(); renderPreviewNow(); }
+function removeCustomSection(i) { data.customSections.splice(i,1); captureAndCommitUndo(); renderSidebar(); renderPreviewNow(); }
+function addCustomSectionItem(i) { data.customSections[i].items.push('新内容'); normalizeData(); captureAndCommitUndo(); renderSidebar(); renderPreviewNow(); }
+function removeCustomSectionItem(i, j) { data.customSections[i].items.splice(j,1); captureAndCommitUndo(); renderSidebar(); renderPreviewNow(); }
 
 // ============================================================
 // CSS Inline & Icons for Preview
@@ -1910,6 +2252,7 @@ body{background:#eef2f7;color:#141414;font-family:"Noto Sans CJK SC","Microsoft 
 .name-row{align-items:end;display:flex;flex-wrap:wrap;gap:12px 16px;margin-bottom:18px}
 .resume-header h1{font-size:40px;font-weight:800;letter-spacing:0;line-height:1.05;margin:0}
 .identity-line{color:#667085;font-size:16px;font-weight:700;margin:0 0 4px}
+.tech-line{color:#1f2937;font-size:13.5px;font-weight:700;line-height:1.35;margin:-8px 0 12px}
 .contact-line{align-items:flex-start;display:flex;flex-wrap:wrap;font-size:14.5px;gap:9px;justify-content:flex-start;letter-spacing:0;margin:0}
 .contact-line a{align-items:center;background:#f8fafc;border:1px solid #dbe2ea;border-radius:4px;color:#1f2937;display:inline-flex;gap:8px;min-height:32px;padding:5px 10px;text-decoration:none;width:auto}
 .contact-line a:hover{border-color:rgba(37,99,235,.35);color:#2563eb}
@@ -1968,6 +2311,12 @@ function escAttr(s) { return esc(s).replace(/'/g,'&#39;'); }
 function rich(value) { return normalizeRichContent(value); }
 
 function normalizeData() {
+  data.header = { ...createDefaultData().header, ...(data.header || {}) };
+  data.education = (data.education || []).map((item) => ({
+    school: String(item.school || ''),
+    major: String(item.major || ''),
+    period: String(item.period || '')
+  }));
   data.infoLines = (data.infoLines || []).map((info) => ({
     ...info,
     value: normalizeRichContent(info.value)
@@ -1981,21 +2330,201 @@ function normalizeData() {
     summary: normalizeRichContent(item.summary),
     highlights: (item.highlights || []).map((highlight) => normalizeRichContent(highlight))
   }));
+  data.campus = (data.campus || []).map((item) => ({
+    ...item,
+    highlights: (item.highlights || []).map((highlight) => normalizeRichContent(highlight))
+  }));
   data.projects = (data.projects || []).map((proj) => ({
     ...proj,
     summary: normalizeRichContent(proj.summary),
     highlights: (proj.highlights || []).map((highlight) => normalizeRichContent(highlight))
   }));
+  data.customSections = (data.customSections || []).map((section) => ({
+    title: String(section.title || '').trim() || '自定义模块',
+    items: (section.items || []).map((item) => normalizeRichContent(item)).filter((item) => item)
+  }));
   data.skills = (data.skills || []).map((skill) => normalizeRichContent(skill));
+  data.sectionOrder = getNormalizedSectionOrder();
+}
+
+function getNormalizedSectionOrder() {
+  const allowed = new Set(DEFAULT_SECTION_ORDER);
+  const source = Array.isArray(data.sectionOrder) && data.sectionOrder.length
+    ? data.sectionOrder
+    : DEFAULT_SECTION_ORDER;
+  const order = [];
+  source.forEach((key) => {
+    if (allowed.has(key) && !order.includes(key)) order.push(key);
+  });
+  DEFAULT_SECTION_ORDER.forEach((key) => {
+    if (!order.includes(key)) order.push(key);
+  });
+  return order;
+}
+
+function renderEducationHTML() {
+  if (data.education.length === 0 && data.infoLines.length === 0) return '';
+  let html = `<section class="section">
+    <h2><svg class="section-icon"><use href="#icon-school"></use></svg>教育背景</h2>`;
+  if (data.education.length > 0) {
+    html += `<div class="education-grid">`;
+    data.education.forEach(e => {
+      html += `<div>${esc(e.school)}</div><div>${esc(e.major)}</div><div>${esc(e.period)}</div>`;
+    });
+    html += `</div>`;
+  }
+  data.infoLines.forEach(info => {
+    html += `<p class="info-line"><strong>${esc(info.label)}：</strong>${rich(info.value)}</p>`;
+  });
+  html += `</section>`;
+  return html;
+}
+
+function renderPublicationsHTML() {
+  if (data.publications.length === 0) return '';
+  let html = `<section class="section">
+      <h2><svg class="section-icon"><use href="#icon-file-text"></use></svg>论文发表</h2>
+      <div class="publications">`;
+  data.publications.forEach(p => {
+    const year = String(p.year || '').trim();
+    html += `<p>${rich(p.title)}${year ? ` (${esc(year)})` : ''}</p>`;
+  });
+  html += `</div></section>`;
+  return html;
+}
+
+function renderInternshipsHTML() {
+  if (data.internships.length === 0) return '';
+  let html = `<section class="section internships-section">
+      <h2><svg class="section-icon"><use href="#icon-briefcase"></use></svg>实习经历</h2>`;
+  data.internships.forEach((item) => {
+    html += `<article class="experience">
+        <div class="entry-head">
+          <strong class="company-title">${esc(item.company)}</strong>
+          <strong>${esc(item.role)}</strong>
+          <span>${esc(item.period)}</span>
+        </div>`;
+    if (item.title) {
+      html += `<h3>${esc(item.title)}</h3>`;
+    }
+    if (item.summary) {
+      html += `<p class="summary">${rich(item.summary)}</p>`;
+    }
+    if (item.highlights && item.highlights.length > 0) {
+      html += `<ul>`;
+      item.highlights.forEach(hl => {
+        html += `<li>${rich(hl)}</li>`;
+      });
+      html += `</ul>`;
+    }
+    html += `</article>`;
+  });
+  html += `</section>`;
+  return html;
+}
+
+function renderCampusHTML() {
+  if (data.campus.length === 0) return '';
+  let html = `<section class="section">
+      <h2><svg class="section-icon"><use href="#icon-school"></use></svg>校园经历</h2>`;
+  data.campus.forEach((item) => {
+    html += `<article class="experience">
+        <div class="entry-head">
+          <strong class="project-title">${esc(item.name)}</strong>
+          <strong>${esc(item.org)}</strong>
+          <span>${esc(item.period)}</span>
+        </div>`;
+    if (item.highlights && item.highlights.length > 0) {
+      html += `<ul>`;
+      item.highlights.forEach(hl => {
+        html += `<li>${rich(hl)}</li>`;
+      });
+      html += `</ul>`;
+    }
+    html += `</article>`;
+  });
+  html += `</section>`;
+  return html;
+}
+
+function renderProjectsHTML() {
+  if (data.projects.length === 0) return '';
+  let html = `<section class="section projects-section">
+      <h2><svg class="section-icon"><use href="#icon-code"></use></svg>项目经历</h2>`;
+  data.projects.forEach((proj) => {
+    html += `<article class="experience">
+        <div class="entry-head">
+          <strong class="project-title">${projectLogoHTML(proj)}${esc(proj.name)}</strong>
+          <strong>${esc(proj.role)}</strong>
+          <span>${esc(proj.period)}</span>
+        </div>`;
+    if (proj.link) {
+      html += `<h3><a class="project-link" href="https://${escAttr(proj.link)}">${esc(proj.link)}</a></h3>`;
+    }
+    if (proj.summary) {
+      const badge = proj.badge ? `<span class="project-stat">${esc(proj.badge)}</span>` : '';
+      html += `<p class="summary">${rich(proj.summary)}${badge}</p>`;
+    }
+    if (proj.highlights && proj.highlights.length > 0) {
+      html += `<ul>`;
+      proj.highlights.forEach(hl => {
+        html += `<li>${rich(hl)}</li>`;
+      });
+      html += `</ul>`;
+    }
+    html += `</article>`;
+  });
+  html += `</section>`;
+  return html;
+}
+
+function renderCustomSectionsHTML() {
+  if (data.customSections.length === 0) return '';
+  let html = '';
+  data.customSections.forEach((section) => {
+    if (!section.items.length) return;
+    html += `<section class="section custom-section">
+        <h2><svg class="section-icon"><use href="#icon-file-text"></use></svg>${esc(section.title)}</h2>
+        <div class="publications">`;
+    section.items.forEach((item) => {
+      html += `<p class="custom-item">${rich(item)}</p>`;
+    });
+    html += `</div></section>`;
+  });
+  return html;
+}
+
+function renderSkillsHTML() {
+  if (data.skills.length === 0) return '';
+  let html = `<section class="section skills-section">
+      <h2><svg class="section-icon"><use href="#icon-tool"></use></svg>专业技能</h2>
+      <ul class="skills-list">`;
+  data.skills.forEach(s => {
+    html += `<li>${rich(s)}</li>`;
+  });
+  html += `</ul></section>`;
+  return html;
 }
 
 function generateResumeBodyHTML() {
   const h = data.header;
+  const techLine = String(h.techLine || '').trim()
+    ? `<p class="tech-line">${esc(h.techLine)}</p>`
+    : '';
+  const sectionRenderers = {
+    education: renderEducationHTML,
+    publications: renderPublicationsHTML,
+    internships: renderInternshipsHTML,
+    campus: renderCampusHTML,
+    projects: renderProjectsHTML,
+    customSections: renderCustomSectionsHTML,
+    skills: renderSkillsHTML
+  };
   let html = `${iconsSVG()}
   <main class="page">
     <header class="resume-header">
       <div class="photo-frame">
-        <img class="profile-photo" src="${escAttr(h.photo)}" alt="证件照" />
+        <img class="profile-photo" src="${escAttr(normalizeAssetPathForHTML(h.photo))}" alt="证件照" />
       </div>
       <div class="profile-main">
         <p class="eyebrow">${esc(h.eyebrow)}</p>
@@ -2003,6 +2532,7 @@ function generateResumeBodyHTML() {
           <h1>${esc(h.name)}</h1>
           <p class="identity-line">${esc(h.title)}</p>
         </div>
+        ${techLine}
         <div class="contact-line">
           <a href="tel:${escAttr(h.phone)}"><svg class="icon"><use href="#icon-phone"></use></svg>${esc(h.phone)}</a>
           <a href="mailto:${escAttr(h.email)}"><svg class="icon"><use href="#icon-mail"></use></svg>${esc(h.email)}</a>
@@ -2011,98 +2541,9 @@ function generateResumeBodyHTML() {
       </div>
     </header>`;
 
-  // Education
-  html += `<section class="section">
-    <h2><svg class="section-icon"><use href="#icon-school"></use></svg>教育背景</h2>
-    <div class="education-grid">`;
-  data.education.forEach(e => {
-    html += `<div>${esc(e.school)}</div><div>${esc(e.major)}</div><div>${esc(e.period)}</div>`;
+  getNormalizedSectionOrder().forEach((key) => {
+    html += sectionRenderers[key]?.() || '';
   });
-  html += `</div>`;
-  data.infoLines.forEach(info => {
-    html += `<p class="info-line"><strong>${esc(info.label)}：</strong>${rich(info.value)}</p>`;
-  });
-  html += `</section>`;
-
-  // Publications
-  if (data.publications.length > 0) {
-    html += `<section class="section">
-      <h2><svg class="section-icon"><use href="#icon-file-text"></use></svg>论文发表</h2>
-      <div class="publications">`;
-    data.publications.forEach(p => {
-      html += `<p>${rich(p.title)} (${esc(p.year)})</p>`;
-    });
-    html += `</div></section>`;
-  }
-
-  // Projects
-  if (data.internships.length > 0) {
-    html += `<section class="section internships-section">
-      <h2><svg class="section-icon"><use href="#icon-briefcase"></use></svg>实习经历</h2>`;
-    data.internships.forEach((item) => {
-      html += `<article class="experience">
-        <div class="entry-head">
-          <strong class="company-title">${esc(item.company)}</strong>
-          <strong>${esc(item.role)}</strong>
-          <span>${esc(item.period)}</span>
-        </div>`;
-      if (item.title) {
-        html += `<h3>${esc(item.title)}</h3>`;
-      }
-      if (item.summary) {
-        html += `<p class="summary">${rich(item.summary)}</p>`;
-      }
-      if (item.highlights && item.highlights.length > 0) {
-        html += `<ul>`;
-        item.highlights.forEach(hl => {
-          html += `<li>${rich(hl)}</li>`;
-        });
-        html += `</ul>`;
-      }
-      html += `</article>`;
-    });
-    html += `</section>`;
-  }
-
-  if (data.projects.length > 0) {
-    html += `<section class="section projects-section">
-      <h2><svg class="section-icon"><use href="#icon-code"></use></svg>项目经历</h2>`;
-    data.projects.forEach((proj, idx) => {
-      html += `<article class="experience">
-        <div class="entry-head">
-          <strong class="project-title">${projectLogoHTML(proj)}${esc(proj.name)}</strong>
-          <strong>${esc(proj.role)}</strong>
-          <span>${esc(proj.period)}</span>
-        </div>`;
-      if (proj.link) {
-        html += `<h3><a class="project-link" href="https://${escAttr(proj.link)}">${esc(proj.link)}</a></h3>`;
-      }
-      if (proj.summary) {
-        const badge = proj.badge ? `<span class="project-stat">${esc(proj.badge)}</span>` : '';
-        html += `<p class="summary">${rich(proj.summary)}${badge}</p>`;
-      }
-      if (proj.highlights && proj.highlights.length > 0) {
-        html += `<ul>`;
-        proj.highlights.forEach(hl => {
-          html += `<li>${rich(hl)}</li>`;
-        });
-        html += `</ul>`;
-      }
-      html += `</article>`;
-    });
-    html += `</section>`;
-  }
-
-  // Skills
-  if (data.skills.length > 0) {
-    html += `<section class="section skills-section">
-      <h2><svg class="section-icon"><use href="#icon-tool"></use></svg>专业技能</h2>
-      <ul class="skills-list">`;
-    data.skills.forEach(s => {
-      html += `<li>${rich(s)}</li>`;
-    });
-    html += `</ul></section>`;
-  }
 
   html += `</main>`;
   return html;
@@ -2134,55 +2575,13 @@ ${generateResumeBodyHTML()}
 
 function refreshPreview() { renderPreviewNow(); }
 
-// ============================================================
-// Save to Server (writes index.html)
-// ============================================================
-async function saveToServer() {
-  const btn = document.querySelector('.btn-primary');
-  const orig = btn.textContent;
-  btn.textContent = '⏳ 保存中...';
-  btn.disabled = true;
-
-  try {
-    const html = generateFullHTML();
-    const endpoint = getSaveEndpoint();
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ html })
-    });
-    if (!res.ok) {
-      throw new Error(`HTTP ${res.status} ${res.statusText}`);
-    }
-    const data = await res.json();
-    if (data.ok) {
-      clearDraftStorage();
-      showToast('✅ 已保存到 index.html（可运行 npm run export:pdf 导出）');
-    } else {
-      showToast('❌ 保存失败：' + (data.error || '未知错误'));
-    }
-  } catch (e) {
-    const hint = location.protocol === 'file:'
-      ? '请通过 start.bat 打开 http://localhost:4173/editor.html 后保存'
-      : '请确认 start.bat 启动的 4173 服务仍在运行';
-    showToast('❌ 保存失败：' + e.message + '。' + hint);
-  }
-
-  btn.textContent = orig;
-  btn.disabled = false;
-}
-
-function getSaveEndpoint() {
-  return '/save';
-}
-
 function generateFullHTML() {
   const h = data.header;
   return `<!doctype html>
 <html lang="zh-CN">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(h.name)} - ${esc(h.title.split('·')[0].trim())}</title>
-<link rel="stylesheet" href="./styles.css">
+<link rel="stylesheet" href="/styles.css">
 </head>
 <body>
   <div class="toolbar" aria-label="简历操作">
@@ -2195,9 +2594,9 @@ function generateFullHTML() {
       ${esc(h.github)}
     </a>
   </div>
-${generateResumeBodyHTML()}
-</body>
-</html>`;
+  ${generateResumeBodyHTML()}
+  </body>
+  </html>`;
 }
 
 function getExportEndpoint() {
@@ -2256,6 +2655,228 @@ async function exportToPDF(event) {
 }
 
 // ============================================================
+// File management
+// ============================================================
+
+async function populateFileList(selectFile) {
+  const sel = document.getElementById('file-select');
+  if (!sel) return;
+  const files = await fetchFileList();
+  sel.innerHTML = '<option value="">切换简历...</option>';
+  files.forEach(f => {
+    const opt = document.createElement('option');
+    opt.value = f;
+    opt.textContent = f.replace(/\.html$/, '');
+    sel.appendChild(opt);
+  });
+  if (selectFile && files.includes(selectFile)) {
+    sel.value = selectFile;
+  } else if (files.length > 0 && !selectFile) {
+    // Load default (last edited)
+    const last = localStorage.getItem(PREF_KEY);
+    if (last && files.includes(last)) { sel.value = last; }
+    else { sel.value = files[0]; }
+  }
+  if (sel.value) {
+    await doLoadFile(sel.value);
+    return;
+  }
+  await loadTemplateFallback();
+}
+
+async function doLoadFile(filename) {
+  if (!filename) return;
+  // Warn if dirty
+  if (isDirty && currentFile && currentFile !== filename) {
+    if (!confirm(`"${currentFile}" 有未保存的修改，确定切换吗？未保存内容将丢失。`)) {
+      // Restore select
+      const sel = document.getElementById('file-select');
+      if (sel) sel.value = currentFile;
+      return;
+    }
+  }
+  // Unlock old file
+  if (currentFile) await unlockFile(currentFile);
+  // Load new file
+  const result = await loadResumeFile(filename);
+  if (!result || !result.ok) {
+    showToast('❌ 加载失败');
+    return;
+  }
+  // Parse HTML into data model
+  const parsed = extractResumeDataFromHTML(result.html);
+  if (parsed && parsed.header) {
+    replaceCurrentData(parsed);
+  } else {
+    showToast('⚠️ 无法解析简历结构，请检查文件格式');
+    return;
+  }
+  currentFile = filename;
+  normalizeData();
+  lastSavedHTML = generateFullHTML();
+  isDirty = false;
+  localStorage.setItem(PREF_KEY, filename);
+  await lockFile(filename);
+  initUndoHistory();
+  renderSidebar();
+  renderPreviewNow();
+  updateFileStatus();
+  showToast(`✅ 已加载：${filename}`);
+}
+
+async function switchFile(filename) {
+  if (!filename) return;
+  await doLoadFile(filename);
+}
+
+async function promptNewResume() {
+  const name = prompt('输入新简历文件名（不需加 .html）：', '新简历');
+  if (!name) return;
+  const result = await createNewResume(name);
+  if (result && result.ok) {
+    await populateFileList(result.file);
+    showToast(`✅ 已创建：${result.file}`);
+  } else {
+    showToast('❌ 创建失败');
+  }
+}
+
+async function renameCurrentResume(newName) {
+  const oldFile = currentFile;
+  const cleanName = String(newName || '').trim();
+  if (!oldFile) {
+    const result = {ok: false, error: '请先选择一份简历'};
+    showToast('❌ ' + result.error);
+    return result;
+  }
+  if (!cleanName) {
+    const result = {ok: false, error: '新文件名不能为空'};
+    showToast('❌ ' + result.error);
+    return result;
+  }
+  if (isDirty) {
+    const result = {ok: false, error: '请先保存当前简历后再重命名'};
+    showToast('❌ ' + result.error);
+    return result;
+  }
+
+  const result = await renameResumeFile(oldFile, cleanName);
+  if (result && result.ok) {
+    if (localStorage.getItem(PREF_KEY) === oldFile) {
+      localStorage.setItem(PREF_KEY, result.file);
+    }
+    currentFile = '';
+    await populateFileList(result.file);
+    clearDraftStorage();
+    showToast(`✅ 已重命名：${result.file}`);
+  } else {
+    showToast('❌ 重命名失败：' + (result?.error || '未知错误'));
+  }
+  return result;
+}
+
+async function promptRenameResume() {
+  if (!currentFile) {
+    showToast('❌ 请先选择一份简历');
+    return;
+  }
+  const currentName = currentFile.replace(/\.html$/i, '');
+  const nextName = prompt('输入新的简历文件名（不需加 .html）：', currentName);
+  if (!nextName) return;
+  await renameCurrentResume(nextName);
+}
+
+async function deleteCurrentResume() {
+  const fileToDelete = currentFile;
+  if (!fileToDelete) {
+    const result = {ok: false, error: '请先选择一份简历'};
+    showToast('❌ ' + result.error);
+    return result;
+  }
+
+  const dirtyHint = isDirty ? '当前有未保存修改，' : '';
+  if (!confirm(`确定删除 "${fileToDelete}" 吗？${dirtyHint}此操作不可恢复。`)) {
+    return {ok: false, cancelled: true};
+  }
+
+  const result = await deleteResumeFile(fileToDelete);
+  if (result && result.ok) {
+    if (localStorage.getItem(PREF_KEY) === fileToDelete) {
+      localStorage.removeItem(PREF_KEY);
+    }
+    currentFile = '';
+    lastSavedHTML = '';
+    isDirty = false;
+    clearDraftStorage();
+    const files = await fetchFileList();
+    await populateFileList(files[0] || '');
+    updateFileStatus();
+    showToast(`✅ 已删除：${fileToDelete}`);
+  } else {
+    showToast('❌ 删除失败：' + (result?.error || '未知错误'));
+  }
+  return result;
+}
+
+function updateFileStatus() {
+  const el = document.getElementById('file-status');
+  if (!el) return;
+  const dirty = isDirty ? ' ● 未保存' : '';
+  el.textContent = currentFile ? `${currentFile}${dirty}` : '模板预览（未保存）';
+}
+
+// Override saveToServer to use resume file
+async function saveToServer() {
+  if (!currentFile) {
+    showToast('❌ 请先选择或创建一份简历');
+    return;
+  }
+  const btn = document.getElementById('save-resume-button');
+  const orig = btn.textContent;
+  btn.textContent = '⏳ 保存中...';
+  btn.disabled = true;
+
+  try {
+    const html = generateFullHTML();
+    const result = await saveResumeFile(currentFile, html);
+    if (result.ok) {
+      lastSavedHTML = html;
+      isDirty = false;
+      updateFileStatus();
+      clearDraftStorage();
+      showToast(`✅ 已保存：${currentFile}`);
+    } else {
+      showToast('❌ 保存失败：' + (result.error || '未知错误'));
+    }
+  } catch (e) {
+    showToast('❌ 保存失败：' + e.message);
+  }
+
+  btn.textContent = orig;
+  btn.disabled = false;
+}
+
+// ── Unsaved changes detection ──
+function markDirty() {
+  if (!isDirty) {
+    isDirty = true;
+    updateFileStatus();
+  }
+}
+
+// Patch renderPreviewNow to mark dirty on changes
+const _origRenderPreview = renderPreviewNow;
+renderPreviewNow = function() {
+  const html = generateHTML();
+  document.getElementById('preview-frame').srcdoc = html;
+  // Check if content changed from last saved
+  const fullHtml = generateFullHTML();
+  if (lastSavedHTML && fullHtml !== lastSavedHTML) {
+    markDirty();
+  }
+};
+
+// ============================================================
 // Toast
 // ============================================================
 function showToast(msg) {
@@ -2269,17 +2890,11 @@ function showToast(msg) {
 // Init
 // ============================================================
 async function initEditor() {
-  const loadedFromIndex = await loadFromSavedIndex();
-  if (loadedFromIndex) {
-    clearDraftStorage();
-    showToast('✅ 已加载 index.html 中最近保存的内容');
-  } else {
-    clearDraftStorage();
-    showToast('⚠️ 未能读取 index.html，已显示编辑器内置默认内容');
-  }
+  clientId = genClientId();
 
-  normalizeData();
-  initUndoHistory();
+  // Load file list and default file
+  await populateFileList();
+
   document.addEventListener('keydown', handleGlobalRichTextShortcuts);
   document.addEventListener('selectionchange', handleDocumentSelectionChange);
   bindCropInteractions();
@@ -2295,8 +2910,14 @@ async function initEditor() {
   });
   window.addEventListener('scroll', hideFloatingToolbar, true);
   window.addEventListener('resize', hideFloatingToolbar);
-  renderSidebar();
-  renderPreviewNow();
+
+  // Warn on unsaved close
+  window.addEventListener('beforeunload', (event) => {
+    if (isDirty) {
+      event.preventDefault();
+      event.returnValue = '';
+    }
+  });
 }
 
 initEditor();

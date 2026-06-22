@@ -13,11 +13,13 @@
 
 ## 功能
 
-- `index.html` 是简历内容源文件，编辑器每次都从它读取最近保存的内容。
+- `resumes/*.html` 是本地简历内容文件，可在编辑器顶部下拉框中来回切换。
 - `editor.html` 提供左右分栏编辑体验：左侧编辑字段，右侧预览简历。
+- 支持管理多份简历，新建简历会从 `index.template.html` 复制默认模板。
 - 支持富文本加粗和斜体：选中文字后使用悬浮工具条，或使用 `Ctrl+B` / `Ctrl+I`。
-- 支持 `Ctrl+S` 保存到 `index.html`，`Ctrl+Z` 撤销误操作。
-- 支持实习经历、项目经历和亮点 bullet 的上下移动排序。
+- 支持 `Ctrl+S` 保存当前简历，`Ctrl+Z` 撤销误操作。
+- 支持教育背景、实习经历、校园经历、项目经历、技能和自定义模块的增删改。
+- 支持实习经历、校园经历、项目经历和亮点 bullet 的上下移动排序。
 - 支持一键导出 PDF，服务端使用 Chromium 渲染网页布局。
 - Windows 用户可直接双击 `start.bat` 启动编辑器。
 
@@ -47,13 +49,13 @@ npm run preview
 http://127.0.0.1:4173/editor.html
 ```
 
-导出示例 PDF：
+在编辑器里点击“导出 PDF”会导出当前正在编辑的简历。也可以用命令行导出指定 HTML：
 
 ```bash
-npm run export:pdf
+npm run export:pdf -- --input resumes/你的简历.html export/你的简历.pdf
 ```
 
-默认输出：
+未指定参数时，CLI 仍按旧兼容逻辑读取 `index.html`，默认输出：
 
 ```text
 export/vibe-resume-demo.pdf
@@ -62,13 +64,14 @@ export/vibe-resume-demo.pdf
 ## 使用方式
 
 1. 打开 `editor.html`。
-2. 在左侧修改姓名、教育、实习、项目和技能。
-3. 选中左侧富文本里的局部文字，使用悬浮工具条设置加粗或斜体。
-4. 修改完成后点击“刷新”或让输入框失焦，右侧预览会更新。
-5. 使用 `Ctrl+S` 或按钮保存到 `index.html`。
-6. 点击“导出 PDF”生成简历文件。
+2. 使用顶部下拉框切换已有简历，或点击“＋”新建一份简历。
+3. 在左侧修改姓名、教育、实习、校园经历、项目、技能和自定义模块。
+4. 选中左侧富文本里的局部文字，使用悬浮工具条设置加粗或斜体。
+5. 修改完成后点击“刷新”或让输入框失焦，右侧预览会更新。
+6. 使用 `Ctrl+S` 或按钮保存到当前 `resumes/*.html` 文件。
+7. 点击“导出 PDF”生成当前简历文件。
 
-如果只想静态预览简历，也可以直接打开 `index.html`。
+如果只想静态预览某份简历，可以在服务启动后打开 `http://127.0.0.1:4173/resumes/文件名.html`。
 
 ## 模板内容说明
 
@@ -83,9 +86,9 @@ export/vibe-resume-demo.pdf
 
 **重要：公开发布前请务必注意以下事项**
 
-- `index.html` 默认已加入 `.gitignore`，不会被推送到 GitHub。
-- 本地编辑器和导出流程使用 `index.html` 保存你真实的简历数据。
-- `index.template.html` 是公开仓库中的模板文件（Alex Chen mock 数据），供其他用户克隆使用。
+- `resumes/*.html` 和 `index.html` 默认已加入 `.gitignore`，不会被推送到 GitHub。
+- 本地编辑器使用 `resumes/*.html` 保存你真实的多份简历数据。
+- `index.template.html` 是公开仓库中的默认模板文件（Alex Chen mock 数据），新建简历时会复制它。
 - 如果你需要更新公开模板，请修改 `index.template.html` 后提交。
 - 不要提交真人证件照、身份证明、手机号、私人邮箱或未公开履历。
 - 不要把真实个人简历 PDF 放进 `export/` 后公开。
@@ -106,12 +109,15 @@ export/vibe-resume-demo.pdf
 │   └── vibe-resume-demo.pdf
 ├── scripts/
 │   ├── export-pdf.mjs
-│   └── verify-editor-load.mjs
+│   ├── verify-editor-load.mjs
+│   └── verify-editor-workflows.mjs
+├── resumes/
+│   └── *.html          ← 本地多份简历（.gitignore 保护，不推送）
 ├── skills/
 │   └── vibe-resume-editor/
 │       └── SKILL.md
 ├── editor.html
-├── index.html          ← 本地使用（.gitignore 保护，不推送）
+├── index.html          ← 旧兼容/CLI 默认输入（.gitignore 保护，不推送）
 ├── index.template.html ← 公开模板（Alex Chen mock 数据）
 ├── serve.py
 ├── start.bat
@@ -123,13 +129,15 @@ export/vibe-resume-demo.pdf
 
 ## 核心文件
 
-- `index.html` 是简历展示页，也是编辑器保存后的源文件（已加入 `.gitignore`，不推送公开仓库）。
-- `index.template.html` 是公开仓库中的模板文件（Alex Chen mock 数据），克隆后可复制为 `index.html` 使用。
+- `resumes/*.html` 是编辑器实际加载、切换和保存的本地简历文件（已加入 `.gitignore`，不推送公开仓库）。
+- `index.template.html` 是公开仓库中的模板文件（Alex Chen mock 数据），新建简历会以它作为默认内容。
+- `index.html` 保留为旧兼容和 CLI 默认输入文件，真实内容同样不应提交。
 - `editor.html`：可视化编辑器，包含表单、富文本工具条、预览和导出入口。
 - `styles.css`：简历展示样式。
-- `serve.py`：统一后台服务，负责静态文件、保存接口和 PDF 导出接口。
+- `serve.py`：统一后台服务，负责静态文件、多简历管理、保存接口和 PDF 导出接口。
 - `scripts/export-pdf.mjs`：使用本机 Chrome / Chromium 导出 PDF。
-- `scripts/verify-editor-load.mjs`：验证编辑器是否从 `index.html` 正确加载模板内容。
+- `scripts/verify-editor-workflows.mjs`：验证编辑器初始渲染、简历切换、新建模板和自定义模块持久化。
+- `scripts/verify-editor-load.mjs`：旧命令兼容入口，会转到完整 editor workflow 回归。
 
 ## 开发验证
 
@@ -145,7 +153,13 @@ python -m py_compile serve.py
 node --check scripts/export-pdf.mjs
 ```
 
-启动服务后验证编辑器加载：
+验证编辑器工作流：
+
+```bash
+npm run verify:editor
+```
+
+旧验证命令仍可使用：
 
 ```bash
 node scripts/verify-editor-load.mjs
@@ -154,7 +168,7 @@ node scripts/verify-editor-load.mjs
 重新生成示例 PDF：
 
 ```bash
-npm run export:pdf
+npm run export:pdf -- --input resumes/你的简历.html export/你的简历.pdf
 ```
 
 ## 可执行文件打包可行性
@@ -162,7 +176,7 @@ npm run export:pdf
 未来可以打包成便携式可执行文件。推荐路线是把 `serve.py` 或一个轻量 Node 服务打包为本地后台程序，并随包携带静态文件和启动脚本。需要额外处理：
 
 - Chrome / Chromium 依赖：使用系统 Chrome，或随包携带 Chromium。
-- 写入目录：保存 `index.html` 和导出 PDF 时需要可写路径。
+- 写入目录：保存 `resumes/*.html` 和导出 PDF 时需要可写路径。
 - 端口占用：启动时探测端口并给出清晰提示。
 - 隐私安全：不要把用户生成的真实简历放入模板安装目录。
 

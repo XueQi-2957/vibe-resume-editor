@@ -197,6 +197,26 @@ textarea { resize: vertical; min-height: 52px; }
 .file-selector .delete-btn { color: var(--danger); font-size: 12px; padding: 4px 7px; }
 .file-selector .delete-btn:hover { background: #fef2f2; border-color: var(--danger); }
 .file-status { font-size: 11px; color: var(--muted); white-space: nowrap; }
+.style-selector {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-left: 8px;
+  border-left: 1px solid var(--border);
+}
+.style-selector label {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+.style-selector select {
+  padding: 5px 24px 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: #fff;
+  color: var(--text);
+  font-size: 12px;
+}
 .help-popover strong { display: block; margin-bottom: 4px; }
 .help-popover p { margin: 4px 0 0; }
 
@@ -435,6 +455,78 @@ textarea { resize: vertical; min-height: 52px; }
 }
 .toast.show { opacity: 1; }
 
+.export-mode-modal {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: rgba(15, 23, 42, .48);
+  z-index: 1600;
+}
+.export-mode-modal.show {
+  display: flex;
+}
+.export-mode-dialog {
+  width: min(92vw, 520px);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, .28);
+  overflow: hidden;
+}
+.export-mode-head {
+  padding: 16px 18px 10px;
+  border-bottom: 1px solid var(--border);
+}
+.export-mode-title {
+  font-size: 16px;
+  font-weight: 800;
+  margin-bottom: 4px;
+}
+.export-mode-subtitle {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.export-mode-body {
+  display: grid;
+  gap: 10px;
+  padding: 14px 18px 16px;
+}
+.export-mode-choice {
+  width: 100%;
+  padding: 13px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+}
+.export-mode-choice:hover {
+  border-color: var(--accent);
+  background: #f8fbff;
+  box-shadow: var(--shadow);
+}
+.export-mode-choice strong {
+  display: block;
+  font-size: 14px;
+  margin-bottom: 3px;
+}
+.export-mode-choice span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.export-mode-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 12px 18px;
+  border-top: 1px solid var(--border);
+  background: #f8fafc;
+}
+
 /* === Scrollbar === */
 .sidebar::-webkit-scrollbar { width: 4px; }
 .sidebar::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 4px; }
@@ -464,6 +556,19 @@ textarea { resize: vertical; min-height: 52px; }
             <button class="new-btn rename-btn" type="button" onclick="promptRenameResume()" title="重命名当前简历">重命名</button>
             <button class="new-btn delete-btn" type="button" onclick="deleteCurrentResume()" title="删除当前简历">删除</button>
             <span class="file-status" id="file-status"></span>
+          </div>
+          <div class="style-selector">
+            <label for="template-select">模板</label>
+            <select id="template-select" onchange="setTemplateStyle(this.value)">
+              <option value="modern">现代</option>
+              <option value="compact-hr">HR紧凑</option>
+            </select>
+            <label for="density-select">密度</label>
+            <select id="density-select" onchange="setDensityStyle(this.value)">
+              <option value="normal">标准</option>
+              <option value="compact">紧凑</option>
+              <option value="ultra">极紧凑</option>
+            </select>
           </div>
           <div class="help-wrap">
         <button class="help-button" type="button" aria-label="使用说明">?</button>
@@ -497,6 +602,27 @@ textarea { resize: vertical; min-height: 52px; }
 </div>
 
 <div class="toast" id="toast"></div>
+<div class="export-mode-modal" id="export-mode-modal" aria-hidden="true" onclick="if(event.target === this) resolveExportMode(null)">
+  <div class="export-mode-dialog" role="dialog" aria-modal="true" aria-labelledby="export-mode-title">
+    <div class="export-mode-head">
+      <div class="export-mode-title" id="export-mode-title">选择 PDF 导出方式</div>
+      <div class="export-mode-subtitle">请选择明确的导出模式。长页版会生成单页长 PDF；A4 版会生成适合打印的多页 PDF。</div>
+    </div>
+    <div class="export-mode-body">
+      <button class="export-mode-choice" type="button" data-export-mode="a4" onclick="resolveExportMode('a4')">
+        <strong>A4 多页打印版</strong>
+        <span>适合纸质打印，会自动分页并在续页加入页眉。</span>
+      </button>
+      <button class="export-mode-choice" type="button" data-export-mode="long" onclick="resolveExportMode('long')">
+        <strong>一页长简历版</strong>
+        <span>适合线上投递和网页预览，只生成一页长 PDF。</span>
+      </button>
+    </div>
+    <div class="export-mode-actions">
+      <button class="btn" type="button" onclick="resolveExportMode(null)">取消</button>
+    </div>
+  </div>
+</div>
 <div class="floating-toolbar" id="floating-toolbar" aria-hidden="true">
   <button type="button" data-style="bold" aria-label="加粗" title="加粗" onmousedown="handleToolbarMouseDown(event)" onclick="applyFormatFromToolbar('bold')">B</button>
   <button type="button" data-style="italic" aria-label="斜体" title="斜体" onmousedown="handleToolbarMouseDown(event)" onclick="applyFormatFromToolbar('italic')">I</button>
@@ -537,6 +663,10 @@ textarea { resize: vertical; min-height: 52px; }
 // Data Model
 // ============================================================
 const EMPTY_RESUME_DATA = {
+  meta: {
+    template: 'modern',
+    density: 'normal'
+  },
   header: {
     name: '',
     title: '',
@@ -559,6 +689,8 @@ const EMPTY_RESUME_DATA = {
 };
 
 const DEFAULT_SECTION_ORDER = ['education', 'publications', 'internships', 'campus', 'projects', 'customSections', 'skills'];
+const TEMPLATE_OPTIONS = ['modern', 'compact-hr'];
+const DENSITY_OPTIONS = ['normal', 'compact', 'ultra'];
 
 function createDefaultData() {
   return JSON.parse(JSON.stringify(EMPTY_RESUME_DATA));
@@ -567,6 +699,10 @@ function createDefaultData() {
 function replaceCurrentData(nextData) {
   const next = createDefaultData();
   const incoming = JSON.parse(JSON.stringify(nextData || {}));
+  next.meta = {
+    ...next.meta,
+    ...(incoming.meta || {})
+  };
   next.header = { ...next.header, ...(incoming.header || {}) };
   next.education = Array.isArray(incoming.education) ? incoming.education : [];
   next.infoLines = Array.isArray(incoming.infoLines) ? incoming.infoLines : [];
@@ -767,6 +903,7 @@ async function loadTemplateFallback() {
 
 function extractResumeDataFromHTML(html) {
   const result = {
+    meta: { ...createDefaultData().meta },
     header: null,
     education: [],
     infoLines: [],
@@ -781,6 +918,14 @@ function extractResumeDataFromHTML(html) {
 
   const doc = parseHTMLDocument(html);
   if (doc) {
+    const mainEl = doc.querySelector('main.page') || doc.body;
+    const template = mainEl?.getAttribute('data-template') || '';
+    const density = mainEl?.getAttribute('data-density') || '';
+    result.meta = {
+      template: TEMPLATE_OPTIONS.includes(template) ? template : 'modern',
+      density: DENSITY_OPTIONS.includes(density) ? density : 'normal'
+    };
+
     const headerEl = doc.querySelector('.resume-header');
     if (headerEl) {
       const defaultHeader = createDefaultData().header;
@@ -924,7 +1069,6 @@ function extractResumeDataFromHTML(html) {
       });
     };
 
-    const mainEl = doc.querySelector('main.page') || doc.body;
     const sections = [...mainEl.querySelectorAll(':scope > section.section')];
     sections.forEach((sectionEl) => {
       const title = stripHtml(sectionEl.querySelector(':scope > h2')?.innerHTML || '').replace(/\s+/g, '');
@@ -2286,6 +2430,36 @@ body{background:#eef2f7;color:#141414;font-family:"Noto Sans CJK SC","Microsoft 
 .skills-list{background:#f7f9fc;border:1px solid #dbe2ea;border-radius:10px;columns:1;font-size:15.5px;line-height:1.35;list-style:none;margin:0;padding:12px 14px}
 .skills-list li{break-inside:avoid;margin-top:4px;padding-left:13px;position:relative;text-align:left}
 .skills-list li::before{background:#d97757;border-radius:999px;content:"";height:5px;left:0;position:absolute;top:8px;width:5px}
+.page.template-compact-hr{padding:32px 42px 34px}
+.template-compact-hr .resume-header{gap:18px;grid-template-columns:96px minmax(0,1fr);margin-bottom:18px;padding:16px 18px 18px}
+.template-compact-hr .profile-photo{height:132px;width:99px}
+.template-compact-hr .resume-header h1{font-size:34px}
+.template-compact-hr .name-row{margin-bottom:12px}
+.template-compact-hr .identity-line{font-size:14px}
+.template-compact-hr .tech-line{font-size:12.5px;margin:-5px 0 9px}
+.template-compact-hr .contact-line{font-size:13px;gap:6px}.template-compact-hr .contact-line a{min-height:27px;padding:3px 7px}
+.template-compact-hr .section{margin-top:15px}.template-compact-hr .section h2{font-size:17px;margin-bottom:8px}
+.template-compact-hr .section-icon{height:23px;width:23px;padding:5px}
+.template-compact-hr .education-grid,.template-compact-hr .publications,.template-compact-hr .skills-list{border-radius:6px;padding:7px 10px}
+.template-compact-hr .education-grid,.template-compact-hr .entry-head,.template-compact-hr .info-line,.template-compact-hr .info-line strong{font-size:14px}
+.template-compact-hr .experience{margin-top:12px;padding-left:12px}.template-compact-hr .entry-head{margin-bottom:6px}
+.template-compact-hr .experience h3{font-size:14.5px;margin-bottom:4px}
+.template-compact-hr .summary,.template-compact-hr .experience ul,.template-compact-hr .publications,.template-compact-hr .skills-list{font-size:13.5px;line-height:1.26}
+.template-compact-hr .experience li{margin-top:3px}
+.page.density-compact{padding-top:32px;padding-bottom:34px}.density-compact .section{margin-top:16px}.density-compact .section h2{margin-bottom:9px}
+.density-compact .resume-header{margin-bottom:18px}.density-compact .experience{margin-top:12px}
+.density-compact .summary,.density-compact .experience ul,.density-compact .publications,.density-compact .skills-list{line-height:1.27}
+.density-compact .experience li{margin-top:3px}
+.page.density-ultra{padding:28px 38px 30px}.density-ultra .resume-header{margin-bottom:14px;padding-top:14px;padding-bottom:15px}
+.density-ultra .section{margin-top:12px}.density-ultra .section h2{font-size:16px;margin-bottom:7px}
+.density-ultra .section-icon{height:21px;width:21px;padding:4px}.density-ultra .name-row{margin-bottom:10px}
+.density-ultra .resume-header h1{font-size:31px}.density-ultra .identity-line{font-size:13px}.density-ultra .eyebrow{font-size:10.5px}
+.density-ultra .tech-line{font-size:11.5px;margin:-4px 0 7px}.density-ultra .contact-line{font-size:12px;gap:5px}.density-ultra .contact-line a{min-height:24px;padding:2px 6px}
+.density-ultra .education-grid,.density-ultra .entry-head,.density-ultra .info-line,.density-ultra .info-line strong{font-size:13px}
+.density-ultra .education-grid,.density-ultra .publications,.density-ultra .skills-list{padding:6px 8px}
+.density-ultra .experience{margin-top:9px;padding-left:10px}.density-ultra .entry-head{margin-bottom:5px}
+.density-ultra .experience h3{font-size:13.5px;margin-bottom:3px}.density-ultra .summary,.density-ultra .experience ul,.density-ultra .publications,.density-ultra .skills-list{font-size:12.5px;line-height:1.22}
+.density-ultra .experience li{margin-top:2px}
 @media print{body{background:#fff}.page{box-shadow:none;border:0;margin:0;width:100%}}`;
 }
 
@@ -2311,6 +2485,10 @@ function escAttr(s) { return esc(s).replace(/'/g,'&#39;'); }
 function rich(value) { return normalizeRichContent(value); }
 
 function normalizeData() {
+  data.meta = {
+    template: TEMPLATE_OPTIONS.includes(data.meta?.template) ? data.meta.template : 'modern',
+    density: DENSITY_OPTIONS.includes(data.meta?.density) ? data.meta.density : 'normal'
+  };
   data.header = { ...createDefaultData().header, ...(data.header || {}) };
   data.education = (data.education || []).map((item) => ({
     school: String(item.school || ''),
@@ -2345,6 +2523,38 @@ function normalizeData() {
   }));
   data.skills = (data.skills || []).map((skill) => normalizeRichContent(skill));
   data.sectionOrder = getNormalizedSectionOrder();
+  syncStyleControls();
+}
+
+function syncStyleControls() {
+  const templateSelect = document.getElementById('template-select');
+  const densitySelect = document.getElementById('density-select');
+  if (templateSelect) templateSelect.value = data.meta?.template || 'modern';
+  if (densitySelect) densitySelect.value = data.meta?.density || 'normal';
+}
+
+function setTemplateStyle(template) {
+  data.meta = data.meta || {};
+  data.meta.template = TEMPLATE_OPTIONS.includes(template) ? template : 'modern';
+  syncStyleControls();
+  captureAndCommitUndo();
+  renderPreviewNow();
+  markDirty();
+}
+
+function setDensityStyle(density) {
+  data.meta = data.meta || {};
+  data.meta.density = DENSITY_OPTIONS.includes(density) ? density : 'normal';
+  syncStyleControls();
+  captureAndCommitUndo();
+  renderPreviewNow();
+  markDirty();
+}
+
+function getPageClassName() {
+  const template = TEMPLATE_OPTIONS.includes(data.meta?.template) ? data.meta.template : 'modern';
+  const density = DENSITY_OPTIONS.includes(data.meta?.density) ? data.meta.density : 'normal';
+  return `page template-${template} density-${density}`;
 }
 
 function getNormalizedSectionOrder() {
@@ -2508,6 +2718,8 @@ function renderSkillsHTML() {
 
 function generateResumeBodyHTML() {
   const h = data.header;
+  const template = TEMPLATE_OPTIONS.includes(data.meta?.template) ? data.meta.template : 'modern';
+  const density = DENSITY_OPTIONS.includes(data.meta?.density) ? data.meta.density : 'normal';
   const techLine = String(h.techLine || '').trim()
     ? `<p class="tech-line">${esc(h.techLine)}</p>`
     : '';
@@ -2521,7 +2733,7 @@ function generateResumeBodyHTML() {
     skills: renderSkillsHTML
   };
   let html = `${iconsSVG()}
-  <main class="page">
+  <main class="${escAttr(getPageClassName())}" data-template="${escAttr(template)}" data-density="${escAttr(density)}">
     <header class="resume-header">
       <div class="photo-frame">
         <img class="profile-photo" src="${escAttr(normalizeAssetPathForHTML(h.photo))}" alt="证件照" />
@@ -2603,13 +2815,41 @@ function getExportEndpoint() {
   return '/export-pdf';
 }
 
+let pendingExportModeResolve = null;
+
+function chooseExportMode() {
+  const modal = document.getElementById('export-mode-modal');
+  if (!modal) return Promise.resolve('a4');
+  modal.classList.add('show');
+  modal.setAttribute('aria-hidden', 'false');
+  return new Promise((resolve) => {
+    pendingExportModeResolve = resolve;
+  });
+}
+
+function resolveExportMode(mode) {
+  const modal = document.getElementById('export-mode-modal');
+  if (modal) {
+    modal.classList.remove('show');
+    modal.setAttribute('aria-hidden', 'true');
+  }
+  const resolve = pendingExportModeResolve;
+  pendingExportModeResolve = null;
+  if (resolve) {
+    resolve(mode === 'long' ? 'long' : mode === 'a4' ? 'a4' : null);
+  }
+}
+
 // ============================================================
 // Export PDF (server-side via Node.js + Chromium)
 // ============================================================
 async function exportToPDF(event) {
   const btn = event?.currentTarget || document.querySelector('[onclick^="exportToPDF"]');
   const orig = btn.textContent;
-  btn.textContent = '⏳ 生成PDF中...';
+  const mode = await chooseExportMode();
+  if (!mode) return;
+
+  btn.textContent = mode === 'long' ? '⏳ 生成长页PDF中...' : '⏳ 生成A4 PDF中...';
   btn.disabled = true;
 
   try {
@@ -2617,7 +2857,7 @@ async function exportToPDF(event) {
     const res = await fetch(getExportEndpoint(), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ html })
+      body: JSON.stringify({ html, mode })
     });
 
     if (!res.ok) {
@@ -2632,7 +2872,8 @@ async function exportToPDF(event) {
     const blob = await res.blob();
     
     // Ask user for filename
-    const defaultName = `${data.header.name || 'resume'}-${(data.header.title || 'resume').split('·')[0].trim() || 'resume'}.pdf`;
+    const suffix = mode === 'long' ? '长页版' : 'A4打印版';
+    const defaultName = `${data.header.name || 'resume'}-${(data.header.title || 'resume').split('·')[0].trim() || 'resume'}-${suffix}.pdf`;
     const filename = prompt('保存为（可修改文件名避免覆盖）：', defaultName) || defaultName;
 
     // Trigger download
@@ -2719,6 +2960,7 @@ async function doLoadFile(filename) {
   await lockFile(filename);
   initUndoHistory();
   renderSidebar();
+  syncStyleControls();
   renderPreviewNow();
   updateFileStatus();
   showToast(`✅ 已加载：${filename}`);
@@ -2906,6 +3148,9 @@ async function initEditor() {
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && document.getElementById('image-crop-modal')?.classList.contains('show')) {
       cancelImageCrop();
+    }
+    if (event.key === 'Escape' && document.getElementById('export-mode-modal')?.classList.contains('show')) {
+      resolveExportMode(null);
     }
   });
   window.addEventListener('scroll', hideFloatingToolbar, true);

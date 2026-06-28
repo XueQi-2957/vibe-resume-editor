@@ -335,9 +335,64 @@ try {
   assert(!renameDeleteResult.filesAfterDelete.includes(renameDeleteResult.renamedFile), 'deleted file still listed');
   assert(renameDeleteResult.currentFileAfterDelete !== renameDeleteResult.renamedFile, 'current file still points at deleted resume');
 
+  const exportModeResult = await page.evaluate(async () => {
+    const seenModes = [];
+    const originalFetch = window.fetch;
+    const originalPrompt = window.prompt;
+    const fakePdf = new Blob(['%PDF-1.4\n%%EOF'], { type: 'application/pdf' });
+    window.fetch = async (resource, options = {}) => {
+      const url = typeof resource === 'string' ? resource : resource.url;
+      if (url === '/export-pdf') {
+        const body = JSON.parse(options.body || '{}');
+        seenModes.push(body.mode || '');
+        return new Response(fakePdf, {
+          status: 200,
+          headers: { 'Content-Type': 'application/pdf' }
+        });
+      }
+      return originalFetch(resource, options);
+    };
+    try {
+      const filenames = ['codex-a4.pdf', 'codex-long.pdf'];
+      window.prompt = (_message, defaultValue) => filenames.shift() || defaultValue || 'codex-export.pdf';
+      const exportButton = document.querySelector('[onclick^="exportToPDF"]');
+
+      const firstExport = exportToPDF({ currentTarget: exportButton });
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      const firstModal = document.querySelector('#export-mode-modal.show');
+      if (!firstModal) {
+        await firstExport.catch(() => {});
+        return { seenModes, hasModeModal: false };
+      }
+      firstModal.querySelector('[data-export-mode="a4"]')?.click();
+      await firstExport;
+
+      const secondExport = exportToPDF({ currentTarget: exportButton });
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      const secondModal = document.querySelector('#export-mode-modal.show');
+      secondModal?.querySelector('[data-export-mode="long"]')?.click();
+      await secondExport;
+    } finally {
+      window.fetch = originalFetch;
+      window.prompt = originalPrompt;
+    }
+    return { seenModes, hasModeModal: true };
+  });
+
+  assert(exportModeResult.hasModeModal, 'export mode should be selected from an explicit modal instead of a prompt');
+  assert(exportModeResult.seenModes.join(',') === 'a4,long', `export modes were not passed correctly: ${exportModeResult.seenModes.join(',')}`);
+
   await page.selectOption('#file-select', flexibleFile);
   await page.waitForTimeout(500);
   const flexibleResult = await page.evaluate(async () => {
+    if (typeof setTemplateStyle !== 'function') {
+      return { ok: false, reason: 'setTemplateStyle is not implemented' };
+    }
+    if (typeof setDensityStyle !== 'function') {
+      return { ok: false, reason: 'setDensityStyle is not implemented' };
+    }
+    setTemplateStyle('compact-hr');
+    setDensityStyle('ultra');
     if (!document.querySelector('#body-education.open')) {
       toggleSection('education');
     }
@@ -359,11 +414,19 @@ try {
       .then((response) => response.json())
       .then((result) => result.html || '');
     const doc = new DOMParser().parseFromString(savedHtml, 'text/html');
+    const pageEl = doc.querySelector('main.page');
     const sectionTitles = [...doc.querySelectorAll('main.page > section > h2')]
       .map((heading) => heading.textContent.replace(/\s+/g, '').trim());
+    const previewPageClass = document.querySelector('#preview-frame')?.contentDocument?.querySelector('main.page')?.className || '';
     return {
       ok: true,
       techLine: doc.querySelector('.tech-line')?.textContent?.trim() || '',
+      template: pageEl?.dataset.template || '',
+      density: pageEl?.dataset.density || '',
+      pageClass: pageEl?.className || '',
+      editorTemplate: document.querySelector('#template-select')?.value || '',
+      editorDensity: document.querySelector('#density-select')?.value || '',
+      previewPageClass,
       sectionTitles,
       customText: doc.body?.innerText || '',
       projectSummary: doc.querySelector('.projects-section .summary')?.innerHTML || '',
@@ -377,6 +440,14 @@ try {
     flexibleResult.techLine === 'Python · LangChain / LlamaIndex · ReAct · Tool Calling · RAG',
     `tech-line was not preserved after editor save: ${flexibleResult.techLine}`
   );
+  assert(flexibleResult.template === 'compact-hr', `template was not saved: ${flexibleResult.template}`);
+  assert(flexibleResult.density === 'ultra', `density was not saved: ${flexibleResult.density}`);
+  assert(flexibleResult.pageClass.includes('template-compact-hr'), `saved HTML missing template class: ${flexibleResult.pageClass}`);
+  assert(flexibleResult.pageClass.includes('density-ultra'), `saved HTML missing density class: ${flexibleResult.pageClass}`);
+  assert(flexibleResult.editorTemplate === 'compact-hr', `editor template select did not restore: ${flexibleResult.editorTemplate}`);
+  assert(flexibleResult.editorDensity === 'ultra', `editor density select did not restore: ${flexibleResult.editorDensity}`);
+  assert(flexibleResult.previewPageClass.includes('template-compact-hr'), `preview missing template class: ${flexibleResult.previewPageClass}`);
+  assert(flexibleResult.previewPageClass.includes('density-ultra'), `preview missing density class: ${flexibleResult.previewPageClass}`);
   assert(
     flexibleResult.sectionTitles.join('>') === '教育背景>项目经历>专业技能>论文发表>证书>校园经历',
     `section order was not preserved after editor save: ${flexibleResult.sectionTitles.join('>')}`

@@ -28,6 +28,7 @@
   "scripts": {
     "preview": "python -u serve.py 4173",
     "export:pdf": "node scripts/export-pdf.mjs",
+    "verify:a4-pdf": "node scripts/verify-a4-pdf-export.mjs",
     "verify:editor": "node scripts/verify-editor-workflows.mjs"
   },
   "engines": {

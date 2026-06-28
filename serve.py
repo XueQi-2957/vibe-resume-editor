@@ -102,7 +102,7 @@ class H(SimpleHTTPRequestHandler):
         elif path == '/delete-resume':
             self._delete_resume(qs.get('file', '') or data.get('file', ''), data.get('client_id', ''))
         elif path == '/export-pdf':
-            self._export(data.get('html', ''))
+            self._export(data.get('html', ''), data.get('mode', 'a4'))
         elif path == '/lock-resume':
             self._lock_resume(qs.get('file', ''), data.get('client_id', ''))
         elif path == '/unlock-resume':
@@ -271,7 +271,8 @@ class H(SimpleHTTPRequestHandler):
 
     # ── PDF export ──
 
-    def _export(self, html):
+    def _export(self, html, mode='a4'):
+        mode = 'long' if mode == 'long' else 'a4'
         temp_html = os.path.join(EXPORT_DIR, f'export-input-{uuid.uuid4().hex[:8]}.html')
         try:
             with open(temp_html, 'w', encoding='utf-8') as f:
@@ -284,7 +285,7 @@ class H(SimpleHTTPRequestHandler):
         pdf_path = os.path.join(EXPORT_DIR, pdf_name)
         try:
             result = subprocess.run(
-                ['node', 'scripts/export-pdf.mjs', '--input', temp_html, pdf_path],
+                ['node', 'scripts/export-pdf.mjs', '--mode', mode, '--input', temp_html, pdf_path],
                 cwd=REPO, capture_output=True, text=True, timeout=35
             )
             if result.returncode != 0:

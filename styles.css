@@ -476,6 +476,231 @@ body {
   width: 5px;
 }
 
+.page.template-compact-hr {
+  padding: 32px 42px 34px;
+}
+
+.template-compact-hr .resume-header {
+  gap: 18px;
+  grid-template-columns: 96px minmax(0, 1fr);
+  margin-bottom: 18px;
+  padding: 16px 18px 18px;
+}
+
+.template-compact-hr .profile-photo {
+  height: 132px;
+  width: 99px;
+}
+
+.template-compact-hr .resume-header h1 {
+  font-size: 34px;
+}
+
+.template-compact-hr .name-row {
+  margin-bottom: 12px;
+}
+
+.template-compact-hr .identity-line {
+  font-size: 14px;
+}
+
+.template-compact-hr .tech-line {
+  font-size: 12.5px;
+  margin: -5px 0 9px;
+}
+
+.template-compact-hr .contact-line {
+  font-size: 13px;
+  gap: 6px;
+}
+
+.template-compact-hr .contact-line a {
+  min-height: 27px;
+  padding: 3px 7px;
+}
+
+.template-compact-hr .section {
+  margin-top: 15px;
+}
+
+.template-compact-hr .section h2 {
+  font-size: 17px;
+  margin-bottom: 8px;
+}
+
+.template-compact-hr .section-icon {
+  height: 23px;
+  padding: 5px;
+  width: 23px;
+}
+
+.template-compact-hr .education-grid,
+.template-compact-hr .publications,
+.template-compact-hr .skills-list {
+  border-radius: 6px;
+  padding: 7px 10px;
+}
+
+.template-compact-hr .education-grid,
+.template-compact-hr .entry-head,
+.template-compact-hr .info-line,
+.template-compact-hr .info-line strong {
+  font-size: 14px;
+}
+
+.template-compact-hr .experience {
+  margin-top: 12px;
+  padding-left: 12px;
+}
+
+.template-compact-hr .entry-head {
+  margin-bottom: 6px;
+}
+
+.template-compact-hr .experience h3 {
+  font-size: 14.5px;
+  margin-bottom: 4px;
+}
+
+.template-compact-hr .summary,
+.template-compact-hr .experience ul,
+.template-compact-hr .publications,
+.template-compact-hr .skills-list {
+  font-size: 13.5px;
+  line-height: 1.26;
+}
+
+.template-compact-hr .experience li {
+  margin-top: 3px;
+}
+
+.page.density-compact {
+  padding-bottom: 34px;
+  padding-top: 32px;
+}
+
+.density-compact .section {
+  margin-top: 16px;
+}
+
+.density-compact .section h2 {
+  margin-bottom: 9px;
+}
+
+.density-compact .resume-header {
+  margin-bottom: 18px;
+}
+
+.density-compact .experience {
+  margin-top: 12px;
+}
+
+.density-compact .summary,
+.density-compact .experience ul,
+.density-compact .publications,
+.density-compact .skills-list {
+  line-height: 1.27;
+}
+
+.density-compact .experience li {
+  margin-top: 3px;
+}
+
+.page.density-ultra {
+  padding: 28px 38px 30px;
+}
+
+.density-ultra .resume-header {
+  margin-bottom: 14px;
+  padding-bottom: 15px;
+  padding-top: 14px;
+}
+
+.density-ultra .section {
+  margin-top: 12px;
+}
+
+.density-ultra .section h2 {
+  font-size: 16px;
+  margin-bottom: 7px;
+}
+
+.density-ultra .section-icon {
+  height: 21px;
+  padding: 4px;
+  width: 21px;
+}
+
+.density-ultra .name-row {
+  margin-bottom: 10px;
+}
+
+.density-ultra .resume-header h1 {
+  font-size: 31px;
+}
+
+.density-ultra .identity-line {
+  font-size: 13px;
+}
+
+.density-ultra .eyebrow {
+  font-size: 10.5px;
+}
+
+.density-ultra .tech-line {
+  font-size: 11.5px;
+  margin: -4px 0 7px;
+}
+
+.density-ultra .contact-line {
+  font-size: 12px;
+  gap: 5px;
+}
+
+.density-ultra .contact-line a {
+  min-height: 24px;
+  padding: 2px 6px;
+}
+
+.density-ultra .education-grid,
+.density-ultra .entry-head,
+.density-ultra .info-line,
+.density-ultra .info-line strong {
+  font-size: 13px;
+}
+
+.density-ultra .education-grid,
+.density-ultra .publications,
+.density-ultra .skills-list {
+  padding: 6px 8px;
+}
+
+.density-ultra .experience {
+  margin-top: 9px;
+  padding-left: 10px;
+}
+
+.density-ultra .entry-head {
+  margin-bottom: 5px;
+}
+
+.density-ultra .experience h3 {
+  font-size: 13.5px;
+  margin-bottom: 3px;
+}
+
+.density-ultra .summary,
+.density-ultra .experience ul,
+.density-ultra .publications,
+.density-ultra .skills-list {
+  font-size: 12.5px;
+  line-height: 1.22;
+}
+
+.density-ultra .experience li {
+  margin-top: 2px;
+}
+
 @page {
   margin: 0;
   size: A4;

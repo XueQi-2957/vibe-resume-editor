@@ -7,7 +7,10 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..");
 
-const exportWidth = 1080;
+const a4ViewportWidth = 794;
+const a4ViewportHeight = 1123;
+const longExportWidth = 1080;
+const longExportBottomPadding = 14;
 
 const chromeCandidates = [
   process.env.CHROME_PATH,
@@ -94,9 +97,13 @@ export function prepareExportHtml(html, options = {}) {
 function parseArgs(args) {
   let inputHtml = path.join(repoRoot, "index.html");
   let outputArg = "export/vibe-resume-demo.pdf";
+  let mode = "a4";
   for (let i = 0; i < args.length; i += 1) {
     if (args[i] === "--input") {
       inputHtml = path.resolve(repoRoot, args[i + 1]);
+      i += 1;
+    } else if (args[i] === "--mode") {
+      mode = args[i + 1] === "long" ? "long" : "a4";
       i += 1;
     } else {
       outputArg = args[i];
@@ -104,8 +111,29 @@ function parseArgs(args) {
   }
   return {
     inputHtml,
-    outputPdf: path.resolve(repoRoot, outputArg)
+    outputPdf: path.resolve(repoRoot, outputArg),
+    mode
   };
+}
+
+function cssStringLiteral(value) {
+  return `"${String(value || "")
+    .replace(/\\/g, "\\\\")
+    .replace(/"/g, '\\"')
+    .replace(/\r?\n/g, " ")
+    .trim()}"`;
+}
+
+async function getA4PageHeaderLabel(page) {
+  const label = await page.evaluate(() => {
+    const clean = (value) => String(value || "").replace(/\s+/g, " ").trim();
+    const name = clean(document.querySelector(".resume-header h1")?.textContent);
+    const direction =
+      clean(document.querySelector(".eyebrow")?.textContent) ||
+      clean(document.querySelector(".identity-line")?.textContent);
+    return [name, direction].filter(Boolean).join(" · ");
+  });
+  return label.length > 58 ? `${label.slice(0, 57)}...` : label;
 }
 
 async function createPreparedInput(inputHtml) {
@@ -120,7 +148,7 @@ async function createPreparedInput(inputHtml) {
 }
 
 async function exportPdf() {
-  const { inputHtml, outputPdf } = parseArgs(process.argv.slice(2));
+  const { inputHtml, outputPdf, mode } = parseArgs(process.argv.slice(2));
 
   if (!executablePath) {
     throw new Error(
@@ -141,88 +169,217 @@ async function exportPdf() {
     const page = await browser.newPage({
       deviceScaleFactor: 1,
       viewport: {
-        width: exportWidth,
-        height: 2200
+        width: a4ViewportWidth,
+        height: a4ViewportHeight
       }
     });
 
-    await page.emulateMedia({ media: "screen" });
+    if (mode === "long") {
+      await page.setViewportSize({ width: longExportWidth, height: a4ViewportHeight });
+    }
+
+    await page.emulateMedia({ media: mode === "long" ? "screen" : "print" });
     await page.goto(pathToFileURL(preparedInputHtml).href, { waitUntil: "load" });
     await page.evaluate(() => document.fonts?.ready);
 
-    await page.addStyleTag({
-      content: `
-        html, body {
-          background: #fff !important;
-          margin: 0 !important;
-          padding: 0 !important;
+    if (mode === "long") {
+      await page.addStyleTag({
+        content: `
+          html, body {
+            background: #fff !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+
+          .toolbar {
+            display: none !important;
+          }
+
+          .page {
+            border: 0 !important;
+            box-shadow: none !important;
+            margin: 0 !important;
+            min-height: 0 !important;
+            overflow: visible !important;
+            padding-bottom: ${longExportBottomPadding}px !important;
+            width: ${longExportWidth}px !important;
+          }
+        `
+      });
+
+      const pageSize = await page.evaluate(() => {
+        const pageEl = document.querySelector(".page");
+        if (!pageEl) throw new Error("Could not find .page element.");
+        const rect = pageEl.getBoundingClientRect();
+        let contentBottom = 0;
+        const walker = document.createTreeWalker(pageEl, NodeFilter.SHOW_TEXT);
+        while (walker.nextNode()) {
+          const textNode = walker.currentNode;
+          if (!textNode.textContent?.trim()) continue;
+          const range = document.createRange();
+          range.selectNodeContents(textNode);
+          for (const textRect of range.getClientRects()) {
+            contentBottom = Math.max(contentBottom, textRect.bottom - rect.top);
+          }
+          range.detach();
         }
+        const visualElements = [...pageEl.querySelectorAll("img, svg:not(.icon-sprite)")];
+        visualElements.forEach((element) => {
+          const elementRect = element.getBoundingClientRect();
+          contentBottom = Math.max(contentBottom, elementRect.bottom - rect.top);
+        });
+        return {
+          width: Math.ceil(rect.width),
+          height: Math.ceil(contentBottom)
+        };
+      });
+      const pdfHeight = pageSize.height + longExportBottomPadding;
 
-        .toolbar {
-          display: none !important;
-        }
+      await page.addStyleTag({
+        content: `
+          @page {
+            margin: 0;
+            size: ${pageSize.width}px ${pdfHeight}px;
+          }
+        `
+      });
 
-        .page {
-          border: 0 !important;
-          box-shadow: none !important;
-          margin: 0 !important;
-          min-height: 0 !important;
-          overflow: visible !important;
-          width: ${exportWidth}px !important;
-        }
-      `
-    });
+      await page.setViewportSize({ width: pageSize.width, height: pdfHeight });
+      await page.pdf({
+        path: outputPdf,
+        width: `${pageSize.width}px`,
+        height: `${pdfHeight}px`,
+        margin: { top: "0", right: "0", bottom: "0", left: "0" },
+        preferCSSPageSize: true,
+        printBackground: true,
+        scale: 1
+      });
+    } else {
+      const pageHeaderLabel = await getA4PageHeaderLabel(page);
+      await page.addStyleTag({
+        content: `
+          @page {
+            margin: 22mm 9mm 12mm;
+            size: A4;
 
-    const pageSize = await page.evaluate(() => {
-      const pageEl = document.querySelector(".page");
-      if (!pageEl) {
-        throw new Error("Could not find .page element.");
-      }
-      const rect = pageEl.getBoundingClientRect();
-      const lastChild = pageEl.lastElementChild;
-      const lastRect = lastChild?.getBoundingClientRect();
-      const contentBottom = lastRect ? lastRect.bottom - rect.top : pageEl.scrollHeight;
-      const paddingBottom = Number.parseFloat(getComputedStyle(pageEl).paddingBottom) || 0;
-      return {
-        width: Math.ceil(rect.width),
-        height: Math.ceil(Math.max(pageEl.scrollHeight, contentBottom + paddingBottom))
-      };
-    });
+            @top-left {
+              border-bottom: 0.5pt solid #dbe2ea;
+              color: #475467;
+              content: ${cssStringLiteral(pageHeaderLabel)};
+              font-family: "Noto Sans CJK SC", "Microsoft YaHei", "PingFang SC", sans-serif;
+              font-size: 8.5pt;
+              font-weight: 700;
+              padding-bottom: 3mm;
+              vertical-align: bottom;
+            }
 
-    const pdfHeight = pageSize.height + 35;
+            @top-center {
+              border-bottom: 0.5pt solid #dbe2ea;
+              content: "";
+              padding-bottom: 3mm;
+              vertical-align: bottom;
+            }
 
-    await page.addStyleTag({
-      content: `
-        @page {
-          margin: 0;
-          size: ${pageSize.width}px ${pdfHeight}px;
-        }
-      `
-    });
+            @top-right {
+              border-bottom: 0.5pt solid #dbe2ea;
+              color: #667085;
+              content: "第 " counter(page) " 页 / 共 " counter(pages) " 页";
+              font-family: "Noto Sans CJK SC", "Microsoft YaHei", "PingFang SC", sans-serif;
+              font-size: 8.5pt;
+              font-weight: 700;
+              padding-bottom: 3mm;
+              vertical-align: bottom;
+            }
+          }
 
-    await page.setViewportSize({
-      width: pageSize.width,
-      height: pdfHeight
-    });
+          @page:first {
+            margin: 15mm 9mm 11mm;
 
-    await page.pdf({
-      path: outputPdf,
-      width: `${pageSize.width}px`,
-      height: `${pdfHeight}px`,
-      margin: {
-        top: "0",
-        right: "0",
-        bottom: "0",
-        left: "0"
-      },
-      preferCSSPageSize: true,
-      printBackground: true,
-      scale: 1
-    });
+            @top-left {
+              border-bottom: 0;
+              content: "";
+            }
+
+            @top-center {
+              border-bottom: 0;
+              content: "";
+            }
+
+            @top-right {
+              border-bottom: 0;
+              content: "";
+            }
+          }
+
+          html, body {
+            background: #fff !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            width: auto !important;
+          }
+
+          .toolbar {
+            display: none !important;
+          }
+
+          .page {
+            border: 0 !important;
+            box-shadow: none !important;
+            margin: 0 !important;
+            min-height: 0 !important;
+            overflow: visible !important;
+            padding: 0 !important;
+            width: auto !important;
+          }
+
+          .resume-header {
+            break-inside: avoid;
+            margin-top: 0 !important;
+          }
+
+          .education-grid {
+            break-inside: avoid;
+            display: grid !important;
+            grid-template-columns: 1.25fr 1.1fr 1fr !important;
+          }
+
+          .education-grid div:nth-child(3n) {
+            text-align: right !important;
+          }
+
+          .publications,
+          .skills-list {
+            break-inside: avoid;
+            page-break-inside: avoid;
+          }
+
+          h2,
+          .entry-head,
+          .experience h3,
+          .summary {
+            break-after: avoid;
+            page-break-after: avoid;
+          }
+        `
+      });
+
+      await page.pdf({
+        path: outputPdf,
+        format: "A4",
+        margin: {
+          top: "0",
+          right: "0",
+          bottom: "0",
+          left: "0"
+        },
+        preferCSSPageSize: true,
+        printBackground: true,
+        scale: 1
+      });
+    }
 
     console.log(`PDF exported: ${path.relative(repoRoot, outputPdf)}`);
-    console.log(`Rendered content size: ${pageSize.width}px x ${pageSize.height}px`);
-    console.log(`PDF page size: ${pageSize.width}px x ${pdfHeight}px`);
+    console.log(`PDF mode: ${mode}`);
     console.log(`Chromium: ${executablePath}`);
   } finally {
     await browser.close();
